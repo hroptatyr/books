@@ -24,6 +24,11 @@ CLEANFILES = $(check_PROGRAMS)
 books_CFLAGS = -I$(top_srcdir)/src
 books_LIBS = $(top_builddir)/src/libbooks.a
 
+## summon our helper
+include clitoris.am
+AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
+TESTS_ENVIRONMENT = root=$(top_srcdir)
+
 
 check_PROGRAMS += btree_01
 TESTS += btree_01
