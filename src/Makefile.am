@@ -9,8 +9,7 @@ AM_LDFLAGS = $(XCCLDFLAGS)
 bin_PROGRAMS =
 noinst_PROGRAMS =
 lib_LTLIBRARIES =
-noinst_LTLIBRARIES =
-pkglib_LTLIBRARIES =
+noinst_LIBRARIES =
 noinst_HEADERS =
 BUILT_SOURCES =
 EXTRA_DIST = $(BUILT_SOURCES)
@@ -20,12 +19,18 @@ SUFFIXES =
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 
-noinst_LIBRARIES = libdfp.a
+noinst_LIBRARIES += libdfp.a
 libdfp_a_SOURCES =
 libdfp_a_SOURCES += dfp754_d32.c dfp754_d32.h
 libdfp_a_SOURCES += dfp754_d64.c dfp754_d64.h
 libdfp_a_CPPFLAGS = $(AM_CPPFLAGS)
 libdfp_a_CPPFLAGS += $(dfp754_CFLAGS)
+
+noinst_LIBRARIES += libbooks.a
+libbooks_a_SOURCES =
+libbooks_a_SOURCES += btree.c btree.h
+libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
+libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 
 
 ## version rules
