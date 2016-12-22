@@ -40,6 +40,11 @@
 
 typedef struct btree_s *btree_t;
 
+#if !defined ORDER
+/* the ordering relation, < means ascending, > means descending */
+# define ORDER		<
+#endif	/* !ORDER */
+
 
 extern btree_t make_btree(void);
 extern void free_btree(btree_t);
@@ -49,5 +54,7 @@ extern VAL_T btree_put(btree_t, KEY_T, VAL_T);
 
 extern KEY_T btree_min(btree_t, VAL_T*);
 extern KEY_T btree_max(btree_t, VAL_T*);
+extern KEY_T btree_top(btree_t, VAL_T*);
+extern KEY_T btree_bot(btree_t, VAL_T*);
 
 #endif	/* INCLUDED_btree_h_ */

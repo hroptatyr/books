@@ -60,11 +60,11 @@ main(void)
 
 	VAL_T v;
 	KEY_T k;
-	k = btree_min(x, &v);
-	printf("min %f (%f)\n", (double)k, (double)v);
+	k = btree_top(x, &v);
+	printf("top %f (%f)\n", (double)k, (double)v);
 
-	k = btree_max(x, &v);
-	printf("max %f (%f)\n", (double)k, (double)v);
+	k = btree_bot(x, &v);
+	printf("bot %f (%f)\n", (double)k, (double)v);
 
 	free_btree(x);
 	return 0;

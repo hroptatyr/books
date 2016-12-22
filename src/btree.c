@@ -60,6 +60,12 @@ struct btree_s {
 	btree_t next;
 };
 
+/* our operators work inverse to ORDER, so flip them around */
+#if !defined ORDER
+# error need an ordering relation
+#endif	/* !ORDER */
+#define OP	paste(ORDER,=)
+
 
 static void
 root_split(btree_t root)
@@ -133,8 +139,8 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	size_t nul;
 	size_t i;
 
-	for (i = 0U; i < t->n && k > t->key[i]; i++);
-	/* so k is <= t->key[i] or t->key[i] is nan */
+	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
+	/* so k is !OP t->key[i] or t->key[i] is nan */
 
 	if (k == t->key[i]) {
 		/* got him */
@@ -177,8 +183,8 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	btree_t c;
 	size_t i;
 
-	for (i = 0U; i < t->n && k > t->key[i]; i++);
-	/* so k is <= t->key[i] or t->key[i] is nan */
+	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
+	/* so k is !OP t->key[i] or t->key[i] is nan */
 
 	/* descent */
 	c = t->val[i].t;
@@ -271,7 +277,7 @@ btree_put(btree_t t, KEY_T k, VAL_T v)
 }
 
 KEY_T
-btree_min(btree_t t, VAL_T *v)
+btree_top(btree_t t, VAL_T *v)
 {
 	for (; t->innerp; t = t->val->t);
 	do {
@@ -289,7 +295,7 @@ btree_min(btree_t t, VAL_T *v)
 }
 
 KEY_T
-btree_max(btree_t t, VAL_T *v)
+btree_bot(btree_t t, VAL_T *v)
 {
 	KEY_T best_max = nand32("");
 	VAL_T best_val;
