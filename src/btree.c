@@ -130,6 +130,7 @@ node_split(btree_t prnt, size_t idx)
 static bool
 leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 {
+	size_t nul;
 	size_t i;
 
 	for (i = 0U; i < t->n && k > t->key[i]; i++);
@@ -138,12 +139,30 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	if (k == t->key[i]) {
 		/* got him */
 		goto out;
-	} else if (i < t->n) {
-		/* have to open a new node, isn't it? */
-		memmove(t->key + i + 1U, t->key + i, (countof(t->key) - (i + 1U)) * sizeof(*t->key));
-		memmove(t->val + i + 1U, t->val + i, (countof(t->key) - (i + 1U)) * sizeof(*t->val));
 	}
-	t->n++;
+	/* otherwise do a scan to see if we have spare items */
+	for (nul = 0U; nul < t->n && t->val[nul].v > 0.dd; nul++);
+
+	if (nul > i) {
+		/* spare item is far to the right */
+		memmove(t->key + i + 1U,
+			t->key + i + 0U,
+			(nul - i) * sizeof(*t->key));
+		memmove(t->val + i + 1U,
+			t->val + i + 0U,
+			(nul - i) * sizeof(*t->val));
+	} else if (nul < i) {
+		/* spare item to the left, good job
+		 * go down with the index as the hole will be to our left */
+		i--;
+		memmove(t->key + nul + 0U,
+			t->key + nul + 1U,
+			(i - nul) * sizeof(*t->key));
+		memmove(t->val + nul + 0U,
+			t->val + nul + 1U,
+			(i - nul) * sizeof(*t->val));
+	}
+	t->n += !(nul < t->n);
 	t->key[i] = k;
 	t->val[i].v = 0.dd;
 out:
