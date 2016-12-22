@@ -32,6 +32,19 @@ libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 
+bin_PROGRAMS += book2book
+book2book_SOURCES = book2book.c book2book.yuck
+book2book_SOURCES += hash.c hash.h
+book2book_SOURCES += version.c version.h
+book2book_CPPFLAGS = $(AM_CPPFLAGS)
+book2book_CPPFLAGS += $(dfp754_CFLAGS)
+book2book_LDFLAGS = $(AM_LDFLAGS)
+book2book_LDFLAGS += $(dfp754_LIBS)
+book2book_LDADD =
+book2book_LDADD += libdfp.a
+book2book_LDADD += libbooks.a
+BUILT_SOURCES += book2book.yucc
+
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
