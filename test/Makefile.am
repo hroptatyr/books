@@ -9,6 +9,7 @@ LC_ALL = C
 AM_CFLAGS = $(EXTRA_CFLAGS)
 AM_CPPFLAGS = -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
 AM_CPPFLAGS += -DTEST
+AM_CPPFLAGS += $(books_CFLAGS)
 
 EXTRA_DIST = $(BUILT_SOURCES) $(TESTS)
 TESTS =
@@ -19,5 +20,17 @@ bin_tests =
 batch_tests =
 check_PROGRAMS =
 CLEANFILES = $(check_PROGRAMS)
+
+books_CFLAGS = -I$(top_srcdir)/src
+books_LIBS = $(top_builddir)/src/libbooks.a
+
+
+check_PROGRAMS += btree_01
+TESTS += btree_01
+btree_01_LDADD = $(books_LIBS)
+
+check_PROGRAMS += btree_02
+TESTS += btree_02
+btree_02_LDADD = $(books_LIBS)
 
 ## Makefile.am ends here
