@@ -57,4 +57,8 @@ extern KEY_T btree_max(btree_t, VAL_T*);
 extern KEY_T btree_top(btree_t, VAL_T*);
 extern KEY_T btree_bot(btree_t, VAL_T*);
 
+
+/* for debugging */
+extern void btree_prnt(btree_t);
+
 #endif	/* INCLUDED_btree_h_ */

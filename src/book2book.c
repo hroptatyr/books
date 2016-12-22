@@ -47,6 +47,7 @@
 #include "dfp754_d32.h"
 #include "dfp754_d64.h"
 #include "hash.h"
+#include "btree.h"
 #include "nifty.h"
 
 typedef _Decimal32 px_t;
@@ -81,15 +82,27 @@ static const char *cont;
 static size_t conz;
 static hx_t conx;
 
+static btree_t book[2U];
+#define BOOK(s)	book[(s) - 1U]
+#define BIDS	BOOK(SIDE_BID)
+#define ASKS	BOOK(SIDE_ASK)
+
 static void
 init(void)
 {
+	BIDS = make_btree();
+	ASKS = make_btree();
 	return;
 }
 
 static void
 fini(void)
 {
+	btree_prnt(BIDS);
+	btree_prnt(ASKS);
+
+	free_btree(BIDS);
+	free_btree(ASKS);
 	return;
 }
 
@@ -146,17 +159,18 @@ procln(const char *line, size_t llen)
 		}
 	}
 
-	/* rest of the line is copied as is */
-	{
+	if (LIKELY(q.s && q.f)) {
+		/* add to book */
+		qx_t x = btree_add(BOOK(q.s), q.p, q.q);
 		char buf[256U];
 		size_t len = 0U;
 
 		buf[len++] = (char)(q.s ^ '@');
-		buf[len++] = (char)(q.f ^ '0');
+		buf[len++] = (char)(--q.f ^ '0');
 		buf[len++] = '\t';
 		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
 		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, q.q);
+		len += qxtostr(buf + len, sizeof(buf) - len, x);
 		buf[len++] = '\n';
 
 		fwrite(line, 1, llen, stdout);

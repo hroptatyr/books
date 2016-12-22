@@ -204,6 +204,30 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	return t->n >= countof(t->key) - 1U;
 }
 
+#include <stdio.h>
+static void
+__prnt(btree_t t, size_t lvl)
+{
+	printf("%p\tL%zu", t, lvl);
+	if (t->innerp) {
+		for (size_t i = 0U; i < t->n; i++) {
+			printf("\t%f", (double)t->key[i]);
+		}
+	} else {
+		/* leaves */
+		for (size_t i = 0U; i < t->n; i++) {
+			printf("\t%f|%f", (double)t->key[i], (double)t->val[i].v);
+		}
+	}
+	putchar('\n');
+	if (t->innerp) {
+		for (size_t i = 0U; i <= t->n; i++) {
+			__prnt(t->val[i].t, lvl + 1U);
+		}
+	}
+	return;
+}
+
 
 btree_t
 make_btree(void)
@@ -314,6 +338,15 @@ btree_bot(btree_t t, VAL_T *v)
 		*v = best_val;
 	}
 	return best_max;
+}
+
+
+/* for debugging purposes */
+void
+btree_prnt(btree_t t)
+{
+	__prnt(t, 0U);
+	return;
 }
 
 /* btree.c ends here */
