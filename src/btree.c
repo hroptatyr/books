@@ -47,6 +47,14 @@
 #include "btree.h"
 #include "nifty.h"
 
+/* our operators work inverse to ORDER, so flip them around */
+#if !defined ORDER
+# define OP	<=
+#else  /* ORDER */
+# undef OP
+# define OP	paste(ORDER,=)
+#endif	/* !ORDER */
+
 typedef union {
 	VAL_T v;
 	btree_t t;
@@ -59,12 +67,6 @@ struct btree_s {
 	btree_val_t val[64U];
 	btree_t next;
 };
-
-/* our operators work inverse to ORDER, so flip them around */
-#if !defined ORDER
-# error need an ordering relation
-#endif	/* !ORDER */
-#define OP	paste(ORDER,=)
 
 
 static bool
@@ -278,7 +280,7 @@ static void
 __chck(btree_t t, KEY_T thresh)
 {
 	for (size_t i = 0U; i < t->n; i++) {
-		if (t->key[i] > thresh) {
+		if (!(t->key[i] OP thresh)) {
 			printf("ALARM %f > %f\n", (double)t->key[i], (double)thresh);
 		}
 	}
@@ -363,44 +365,6 @@ btree_put(btree_t t, KEY_T k, VAL_T v)
 	return v;
 }
 
-KEY_T
-btree_top(btree_t t, VAL_T *v)
-{
-	for (; t->innerp; t = t->val->t);
-	do {
-		for (size_t i = 0U; i < t->n; i++) {
-			if (LIKELY(t->val[i].v > 0.dd)) {
-				if (LIKELY(v != NULL)) {
-					*v = t->val[i].v;
-				}
-				return t->key[i];
-			}
-		}
-	} while ((t = t->next));
-	return nand32("");
-}
-
-KEY_T
-btree_bot(btree_t t, VAL_T *v)
-{
-	KEY_T best_max = nand32("");
-	VAL_T best_val;
-
-	for (; t->innerp; t = t->val->t);
-	do {
-		for (size_t i = 0U; i < t->n; i++) {
-			if (LIKELY(t->val[i].v > 0.dd)) {
-				best_max = t->key[i];
-				best_val = t->val[i].v;
-			}
-		}
-	} while ((t = t->next));
-	if (LIKELY(v != NULL && !isnand32(best_max))) {
-		*v = best_val;
-	}
-	return best_max;
-}
-
 bool
 btree_iter_next(btree_iter_t *iter)
 {
@@ -444,5 +408,30 @@ btree_chck(btree_t t)
 	}
 	return;
 }
+
+
+#if !defined ORDER
+/* do both, ascending and descending btrees */
+#define ORDER		>
+#define btree_t		btred_t
+#define btree_s		btred_s
+#define btree_iter_t	btred_iter_t
+#define btree_val_t	btred_val_t
+#define make_btree	make_btred
+#define free_btree	free_btred
+#define btree_add	btred_add
+#define btree_put	btred_put
+#define btree_iter_next	btred_iter_next
+#define btree_prnt	btred_prnt
+#define btree_chck	btred_chck
+#define node_free_p	node_free_p2
+#define root_split	root_split2
+#define node_split	node_split2
+#define leaf_add	lead_add2
+#define twig_add	twig_add2
+#define __prnt		__prnt2
+#define __chck		__chck2
+# include __FILE__
+#endif	/* !ORDER */
 
 /* btree.c ends here */
