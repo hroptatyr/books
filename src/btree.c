@@ -364,7 +364,7 @@ btree_add(btree_t t, KEY_T k, VAL_T v)
 VAL_T
 btree_put(btree_t t, KEY_T k, VAL_T v)
 {
-	VAL_T *vp;
+	VAL_T *vp, w;
 	bool splitp;
 
 	/* check if root has leaves */
@@ -373,15 +373,15 @@ btree_put(btree_t t, KEY_T k, VAL_T v)
 	} else {
 		splitp = twig_add(t, k, &vp);
 	}
-	/* be saturating */
-	v = v > 0.dd ? v : 0.dd;
-	*vp = v;
+	/* we promised to return the old value */
+	w = *vp;
+	*vp = v > 0.dd ? v : 0.dd;
 
 	if (UNLIKELY(splitp)) {
 		/* root got split, bollocks */
 		root_split(t);
 	}
-	return v;
+	return w;
 }
 
 bool
