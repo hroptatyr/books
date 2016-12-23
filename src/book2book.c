@@ -101,6 +101,9 @@ fini(void)
 	btree_prnt(BIDS);
 	btree_prnt(ASKS);
 
+	btree_chck(BIDS);
+	btree_chck(ASKS);
+
 	free_btree(BIDS);
 	free_btree(ASKS);
 	return;

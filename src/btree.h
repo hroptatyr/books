@@ -60,5 +60,6 @@ extern KEY_T btree_bot(btree_t, VAL_T*);
 
 /* for debugging */
 extern void btree_prnt(btree_t);
+extern void btree_chck(btree_t);
 
 #endif	/* INCLUDED_btree_h_ */

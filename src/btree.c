@@ -228,6 +228,23 @@ __prnt(btree_t t, size_t lvl)
 	return;
 }
 
+static void
+__chck(btree_t t, KEY_T thresh)
+{
+	for (size_t i = 0U; i < t->n; i++) {
+		if (t->key[i] > thresh) {
+			printf("ALARM %f > %f\n", (double)t->key[i], (double)thresh);
+		}
+	}
+	if (!t->innerp) {
+		return;
+	}
+	for (size_t i = 0U; i < t->n; i++) {
+		__chck(t->val[i].t, t->key[i]);
+	}
+	return;
+}
+
 
 btree_t
 make_btree(void)
@@ -346,6 +363,18 @@ void
 btree_prnt(btree_t t)
 {
 	__prnt(t, 0U);
+	return;
+}
+
+void
+btree_chck(btree_t t)
+{
+	if (!t->innerp) {
+		return;
+	}
+	for (size_t i = 0U; i < t->n; i++) {
+		__chck(t->val[i].t, t->key[i]);
+	}
 	return;
 }
 
