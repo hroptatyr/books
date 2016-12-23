@@ -78,28 +78,61 @@ typedef struct {
 } quo_t;
 
 
+static inline size_t
+memncpy(char *restrict tgt, const char *src, size_t zrc)
+{
+	(void)memcpy(tgt, src, zrc);
+	return zrc;
+}
+
+
 static const char *cont;
 static size_t conz;
 static hx_t conx;
 
 static btree_t book[2U];
-#define BOOK(s)	book[(s) - 1U]
-#define BIDS	BOOK(SIDE_BID)
-#define ASKS	BOOK(SIDE_ASK)
+#define BOOK(s)		book[(s) - 1U]
+#define BIDS		BOOK(SIDE_BID)
+#define ASKS		BOOK(SIDE_ASK)
 
 static void
 init(void)
 {
-	BIDS = make_btree();
-	ASKS = make_btree();
+	BIDS = make_btree(true);
+	ASKS = make_btree(false);
 	return;
 }
 
 static void
 fini(void)
 {
-	btree_prnt(BIDS);
-	btree_prnt(ASKS);
+	{
+		btree_iter_t i;
+		char buf[16384U];
+		size_t len;
+
+		len = memncpy(buf, "BIDS", 4U);
+		for (i.t = BIDS; btree_iter_next(&i);) {
+			buf[len++] = ' ';
+			buf[len++] = ' ';
+			len += pxtostr(buf + len, sizeof(buf) - len, i.k);
+			buf[len++] = '|';
+			len += qxtostr(buf + len, sizeof(buf) - len, i.v);
+		}
+		buf[len++] = '\n';
+		fwrite(buf, 1, len, stdout);
+
+		len = memncpy(buf, "ASKS", 4U);
+		for (i.t = ASKS; btree_iter_next(&i);) {
+			buf[len++] = ' ';
+			buf[len++] = ' ';
+			len += pxtostr(buf + len, sizeof(buf) - len, i.k);
+			buf[len++] = '|';
+			len += qxtostr(buf + len, sizeof(buf) - len, i.v);
+		}
+		buf[len++] = '\n';
+		fwrite(buf, 1, len, stdout);
+	}
 
 	btree_chck(BIDS);
 	btree_chck(ASKS);
