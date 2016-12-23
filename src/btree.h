@@ -35,6 +35,7 @@
  *
  **/
 #if !defined INCLUDED_btree_h_
+#define INCLUDED_btree_h_
 #include <stdbool.h>
 #include "books.h"
 
@@ -48,11 +49,16 @@ typedef struct {
 } btree_iter_t;
 
 
-extern btree_t make_btree(void);
+extern btree_t make_btree(bool descp);
 extern void free_btree(btree_t);
 
 extern VAL_T btree_add(btree_t, KEY_T, VAL_T);
 extern VAL_T btree_put(btree_t, KEY_T, VAL_T);
+
+extern KEY_T btree_min(btree_t, VAL_T*);
+extern KEY_T btree_max(btree_t, VAL_T*);
+extern KEY_T btree_top(btree_t, VAL_T*);
+extern KEY_T btree_bot(btree_t, VAL_T*);
 
 extern bool btree_iter_next(btree_iter_t*);
 
@@ -61,34 +67,4 @@ extern bool btree_iter_next(btree_iter_t*);
 extern void btree_prnt(btree_t);
 extern void btree_chck(btree_t);
 
-
-/* and include everything again with the opposite ordering */
-#if !defined ORDER
-/* the ordering relation, < means ascending, > means descending */
-#define ORDER		>
-#define btree_t		btred_t
-#define btree_s		btred_s
-#define btree_iter_t	btred_iter_t
-#define make_btree	make_btred
-#define free_btree	free_btred
-#define btree_add	btred_add
-#define btree_put	btred_put
-#define btree_iter_next	btred_iter_next
-#define btree_prnt	btred_prnt
-#define btree_chck	btred_chck
-# include __FILE__
-#undef ORDER
-#undef btree_t
-#undef btree_s
-#undef btree_iter_t
-#undef make_btree
-#undef free_btree
-#undef btree_add
-#undef btree_put
-#undef btree_iter_next
-#undef btree_prnt
-#undef btree_chck
-#endif	/* !ORDER */
-
-#define INCLUDED_btree_h_
 #endif	/* INCLUDED_btree_h_ */

@@ -47,14 +47,6 @@
 #include "btree.h"
 #include "nifty.h"
 
-/* our operators work inverse to ORDER, so flip them around */
-#if !defined ORDER
-# define OP	<=
-#else  /* ORDER */
-# undef OP
-# define OP	paste(ORDER,=)
-#endif	/* !ORDER */
-
 typedef union {
 	VAL_T v;
 	btree_t t;
@@ -63,6 +55,7 @@ typedef union {
 struct btree_s {
 	uint32_t n;
 	uint32_t innerp:1;
+	uint32_t descp:1;
 	KEY_T key[63U + 1U/*spare*/];
 	btree_val_t val[64U];
 	btree_t next;
@@ -88,8 +81,8 @@ static void
 root_split(btree_t root)
 {
 	/* root got split, bollocks */
-	const btree_t left = make_btree();
-	const btree_t rght = make_btree();
+	const btree_t left = make_btree(root->descp);
+	const btree_t rght = make_btree(root->descp);
 	const size_t piv = countof(root->key) / 2U - 1U;
 
 	/* T will become the new root so push stuff to LEFT ... */
@@ -129,7 +122,7 @@ node_split(btree_t prnt, size_t idx)
 
 	if (nul > prnt->n) {
 		/* no cell to prune, create one */
-		rght = make_btree();
+		rght = make_btree(chld->descp);
 	} else {
 		/* hijack the value cell */
 		rght = prnt->val[nul].t;
@@ -186,8 +179,14 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	size_t nul;
 	size_t i;
 
-	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
-	/* so k is !OP t->key[i] or t->key[i] is nan */
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
 
 	if (k == t->key[i]) {
 		/* got him */
@@ -230,8 +229,14 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	btree_t c;
 	size_t i;
 
-	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
-	/* so k is !OP t->key[i] or t->key[i] is nan */
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
 
 	/* descent */
 	c = t->val[i].t;
@@ -279,10 +284,23 @@ __prnt(btree_t t, size_t lvl)
 static void
 __chck(btree_t t, KEY_T thresh)
 {
-	for (size_t i = 0U; i < t->n; i++) {
-		if (!(t->key[i] OP thresh)) {
-			printf("ALARM %f > %f\n", (double)t->key[i], (double)thresh);
+	switch (t->descp) {
+	case 0U:
+		for (size_t i = 0U; i < t->n; i++) {
+			if (t->key[i] > thresh) {
+				printf("ALARM %f > %f\n",
+				       (double)t->key[i], (double)thresh);
+			}
 		}
+		break;
+	case 1U:
+		for (size_t i = 0U; i < t->n; i++) {
+			if (t->key[i] < thresh) {
+				printf("ALARM %f < %f\n",
+				       (double)t->key[i], (double)thresh);
+			}
+		}
+		break;
 	}
 	if (!t->innerp) {
 		return;
@@ -295,10 +313,11 @@ __chck(btree_t t, KEY_T thresh)
 
 
 btree_t
-make_btree(void)
+make_btree(bool descp)
 {
 	btree_t r = calloc(1U, sizeof(*r));
 
+	r->descp = descp;
 	memset(r->key, -1, sizeof(r->key));
 	return r;
 }
@@ -408,30 +427,5 @@ btree_chck(btree_t t)
 	}
 	return;
 }
-
-
-#if !defined ORDER
-/* do both, ascending and descending btrees */
-#define ORDER		>
-#define btree_t		btred_t
-#define btree_s		btred_s
-#define btree_iter_t	btred_iter_t
-#define btree_val_t	btred_val_t
-#define make_btree	make_btred
-#define free_btree	free_btred
-#define btree_add	btred_add
-#define btree_put	btred_put
-#define btree_iter_next	btred_iter_next
-#define btree_prnt	btred_prnt
-#define btree_chck	btred_chck
-#define node_free_p	node_free_p2
-#define root_split	root_split2
-#define node_split	node_split2
-#define leaf_add	lead_add2
-#define twig_add	twig_add2
-#define __prnt		__prnt2
-#define __chck		__chck2
-# include __FILE__
-#endif	/* !ORDER */
 
 /* btree.c ends here */
