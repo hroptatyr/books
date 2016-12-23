@@ -53,8 +53,8 @@ typedef union {
 } btree_val_t;
 
 struct btree_s {
-	size_t innerp:1;
-	size_t n:63;
+	uint32_t n;
+	uint32_t innerp:1;
 	KEY_T key[63U + 1U/*spare*/];
 	btree_val_t val[64U];
 	btree_t next;
@@ -67,6 +67,21 @@ struct btree_s {
 #define OP	paste(ORDER,=)
 
 
+static bool
+node_free_p(btree_t t)
+{
+/* check if btree cell can be pruned
+ * and we say a btree cell can be pruned if all of its children can be pruned */
+	size_t nul;
+	if (!t->innerp) {
+		for (nul = 0U; nul < t->n && t->val[nul].v <= 0.dd; nul++);
+		return nul >= t->n;
+	}
+	/* otherwise recur */
+	for (nul = 0U; nul <= t->n && node_free_p(t->val[nul].t); nul++);
+	return nul > t->n;
+}
+
 static void
 root_split(btree_t root)
 {
@@ -101,35 +116,65 @@ root_split(btree_t root)
 static void
 node_split(btree_t prnt, size_t idx)
 {
-/* PRNT's IDX-th child will be split */
+/* PaReNT's IDX-th child will be split */
 	const btree_t chld = prnt->val[idx].t;
-	const btree_t rght = make_btree();
 	const size_t piv = countof(chld->key) / 2U - 1U;
+	btree_t rght;
+	size_t nul;
 
-	/* shift things to RGHT */
-	memcpy(rght->key, chld->key + piv + 1U, (piv + 0U) * sizeof(*chld->key));
-	memcpy(rght->val, chld->val + piv + 1U, (piv + 1U) * sizeof(*chld->val));
-	rght->innerp = chld->innerp;
-	rght->n = piv;
-	rght->next = NULL;
+	/* do a scan to see if we have spare items */
+	for (nul = 0U; nul <= prnt->n && !node_free_p(prnt->val[nul].t); nul++);
 
-	if (idx < prnt->n) {
-		/* make some room then */
+	if (nul > prnt->n) {
+		/* no cell to prune, create one */
+		rght = make_btree();
+	} else {
+		/* hijack the value cell */
+		rght = prnt->val[nul].t;
+		/* adjust next pointers */
+		if (nul) {
+			prnt->val[nul - 1U].t->next = rght->next;
+		}
+	}
+
+	if (nul > idx) {
+		/* spare item is far to the right */
 		memmove(prnt->key + idx + 1U,
 			prnt->key + idx + 0U,
-			(countof(prnt->key) - (idx + 1U)) * sizeof(*prnt->key));
+			(nul - idx) * sizeof(*prnt->key));
 		memmove(prnt->val + idx + 1U,
 			prnt->val + idx + 0U,
-			(countof(prnt->key) - (idx + 1U)) * sizeof(*prnt->val));
+			(nul - idx) * sizeof(*prnt->val));
+	} else if (nul < idx) {
+		/* spare item to the left, good job */
+		memmove(prnt->key + nul + 0U,
+			prnt->key + nul + 1U,
+			(idx - nul) * sizeof(*prnt->key));
+		memmove(prnt->val + nul + 0U,
+			prnt->val + nul + 1U,
+			(idx - nul) * sizeof(*prnt->val));
+		/* whole to the left, adjust index */
+		idx--;
 	}
-	/* and now massage LEFT which is C and T */
-	prnt->key[idx] = chld->key[piv];
-	prnt->n++;
+
+	/* massage PaReNT */
+	prnt->n += nul > prnt->n;
+	prnt->key[idx + 0U] = chld->key[piv];
 	prnt->val[idx + 1U].t = rght;
+
+	/* then shift things to RGHT */
+	memcpy(rght->key, chld->key + piv + 1U, (piv + 0U) * sizeof(*chld->key));
+	memcpy(rght->val, chld->val + piv + 1U, (piv + 1U) * sizeof(*chld->val));
+	memset(rght->key + piv, -1,
+	       (countof(rght->key) - piv) * sizeof(*rght->key));
+	rght->innerp = chld->innerp;
+	rght->next = chld->next;
+	rght->n = piv;
+	/* and CHLD (the left one) */
 	chld->n = piv + !chld->innerp;
+	chld->next = rght;
 	memset(chld->key + chld->n, -1,
 	       (countof(chld->key) - chld->n) * sizeof(*chld->key));
-	chld->next = rght;
 	return;
 }
 
@@ -197,12 +242,13 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 		splitp = twig_add(c, k, v);
 	}
 
-	if (splitp) {
+	if (UNLIKELY(splitp)) {
 		/* C needs splitting, not again */
 		node_split(t, i);
 	}
 	return t->n >= countof(t->key) - 1U;
 }
+
 
 #include <stdio.h>
 static void
