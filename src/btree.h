@@ -36,6 +36,7 @@
  **/
 #if !defined INCLUDED_btree_h_
 #define INCLUDED_btree_h_
+#include <stdbool.h>
 #include "books.h"
 
 typedef struct btree_s *btree_t;
@@ -44,6 +45,13 @@ typedef struct btree_s *btree_t;
 /* the ordering relation, < means ascending, > means descending */
 # define ORDER		<
 #endif	/* !ORDER */
+
+typedef struct {
+	btree_t t;
+	size_t i;
+	KEY_T k;
+	VAL_T v;
+} btree_iter_t;
 
 
 extern btree_t make_btree(void);
@@ -56,6 +64,8 @@ extern KEY_T btree_min(btree_t, VAL_T*);
 extern KEY_T btree_max(btree_t, VAL_T*);
 extern KEY_T btree_top(btree_t, VAL_T*);
 extern KEY_T btree_bot(btree_t, VAL_T*);
+
+extern bool btree_iter_next(btree_iter_t*);
 
 
 /* for debugging */

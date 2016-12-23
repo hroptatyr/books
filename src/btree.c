@@ -368,8 +368,7 @@ btree_top(btree_t t, VAL_T *v)
 {
 	for (; t->innerp; t = t->val->t);
 	do {
-		size_t i;
-		for (i = 0U; i < t->n; i++) {
+		for (size_t i = 0U; i < t->n; i++) {
 			if (LIKELY(t->val[i].v > 0.dd)) {
 				if (LIKELY(v != NULL)) {
 					*v = t->val[i].v;
@@ -389,8 +388,7 @@ btree_bot(btree_t t, VAL_T *v)
 
 	for (; t->innerp; t = t->val->t);
 	do {
-		size_t i;
-		for (i = 0U; i < t->n; i++) {
+		for (size_t i = 0U; i < t->n; i++) {
 			if (LIKELY(t->val[i].v > 0.dd)) {
 				best_max = t->key[i];
 				best_val = t->val[i].v;
@@ -401,6 +399,29 @@ btree_bot(btree_t t, VAL_T *v)
 		*v = best_val;
 	}
 	return best_max;
+}
+
+bool
+btree_iter_next(btree_iter_t *iter)
+{
+	if (UNLIKELY(iter->t == NULL)) {
+		return false;
+	}
+	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
+	do {
+		for (size_t i = iter->i; i < iter->t->n; i++) {
+			if (LIKELY(iter->t->val[i].v > 0.dd)) {
+				/* good one */
+				iter->k = iter->t->key[i];
+				iter->v = iter->t->val[i].v;
+				iter->i = i + 1U;
+				return true;
+			}
+		}
+		/* reset index */
+		iter->i = 0U;
+	} while ((iter->t = iter->t->next));
+	return false;
 }
 
 
