@@ -106,6 +106,7 @@ init(void)
 static void
 fini(void)
 {
+#if 0
 	{
 		btree_iter_t i;
 		char buf[16384U];
@@ -133,6 +134,7 @@ fini(void)
 		buf[len++] = '\n';
 		fwrite(buf, 1, len, stdout);
 	}
+#endif
 
 	btree_chck(BIDS);
 	btree_chck(ASKS);
@@ -195,6 +197,8 @@ procln(const char *line, size_t llen)
 		}
 	}
 
+#if 0
+/* convert to 2-books */
 	if (LIKELY(q.s && q.f)) {
 		/* add to book */
 		qx_t x = btree_add(BOOK(q.s), q.p, q.q);
@@ -202,7 +206,7 @@ procln(const char *line, size_t llen)
 		size_t len = 0U;
 
 		buf[len++] = (char)(q.s ^ '@');
-		buf[len++] = (char)(--q.f ^ '0');
+		buf[len++] = '2';
 		buf[len++] = '\t';
 		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
 		buf[len++] = '\t';
@@ -212,6 +216,57 @@ procln(const char *line, size_t llen)
 		fwrite(line, 1, llen, stdout);
 		fwrite(buf, 1, len, stdout);
 	}
+#elif 1
+/* convert to 1-books, aligned */
+	if (LIKELY(q.s && q.f)) {
+		/* add to book */
+		(void)btree_add(BOOK(q.s), q.p, q.q);
+	}
+
+again:
+	with (btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS}) {
+		static px_t b1, a1;
+		static qx_t B1, A1;
+		char buf[256U];
+		size_t len = 0U;
+
+		/* get the top of the book values */
+		if (!btree_iter_next(&bi)) {
+			break;
+		} else if (!btree_iter_next(&ai)) {
+			break;
+		} else if ((bi.k == b1 && bi.v == B1 &&
+			    ai.k == a1 && ai.v == A1)) {
+			break;
+		}
+
+		/* check self-crossing */
+		if (ai.k <= bi.k && ai.k < a1) {
+			/* invalidate bid and start again */
+			btree_put(BIDS, bi.k, 0.dd);
+			goto again;
+		} else if (bi.k >= ai.k && bi.k > b1) {
+			/* invalidate ask and start again */
+			btree_put(ASKS, ai.k, 0.dd);
+			goto again;
+		}
+
+		/* yep, top level change */
+		b1 = bi.k, B1 = bi.v;
+		a1 = ai.k, A1 = ai.v;
+		len += pxtostr(buf + len, sizeof(buf) - len, b1);
+		buf[len++] = '\t';
+		len += pxtostr(buf + len, sizeof(buf) - len, a1);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, B1);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, A1);
+		buf[len++] = '\n';
+
+		fwrite(line, 1, llen, stdout);
+		fwrite(buf, 1, len, stdout);
+	}
+#endif
 	return 0;
 }
 
