@@ -20,3 +20,6 @@ A 3-book disaggregates the 2-book and indicates increments (or
 decrements if QUANTITY is negative) to a price level.
 
   -i, --instr=INSTR         Filter for occurrences of INSTR.
+  -1                        Output top-level book.
+  -2                        Output level-2 book.
+  -3                        Output level-3 book.

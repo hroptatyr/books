@@ -75,7 +75,14 @@ typedef struct {
 	flav_t f;
 	px_t p;
 	qx_t q;
+	qx_t o;
 } quo_t;
+
+#define NOT_A_QUO	(quo_t){SIDE_UNK}
+#define NOT_A_QUO_P(x)	!((x).s)
+
+/* output mode */
+static void(*prq)(quo_t);
 
 
 static inline size_t
@@ -94,6 +101,10 @@ static btree_t book[2U];
 #define BOOK(s)		book[(s) - 1U]
 #define BIDS		BOOK(SIDE_BID)
 #define ASKS		BOOK(SIDE_ASK)
+
+/* per-run variables */
+static const char *prfx;
+static size_t prfz;
 
 static void
 init(void)
@@ -144,8 +155,8 @@ fini(void)
 	return;
 }
 
-static int
-procln(const char *line, size_t llen)
+static quo_t
+rdq(const char *line, size_t llen)
 {
 /* process one line */
 	char *on;
@@ -154,7 +165,7 @@ procln(const char *line, size_t llen)
 	/* get qty */
 	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without quantity */
-		return -1;
+		return NOT_A_QUO;
 	}
 	llen = on - line;
 	q.q = strtoqx(on + 1U, NULL);
@@ -162,7 +173,7 @@ procln(const char *line, size_t llen)
 	/* get prc */
 	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without price */
-		return -1;
+		return NOT_A_QUO;
 	}
 	llen = on - line;
 	q.p = strtopx(on + 1U, NULL);
@@ -183,6 +194,11 @@ procln(const char *line, size_t llen)
 		s &= ~0x20U;
 		s ^= '@';
 		q.s = (side_t)(s & -(s <= 2U));
+
+		if (UNLIKELY(!q.s)) {
+			/* cannot put entry to either side, just ignore */
+			return NOT_A_QUO;
+		}
 	}
 	llen = on - line;
 
@@ -193,36 +209,44 @@ procln(const char *line, size_t llen)
 		hx_t hx = hash(boi + 1U, on - 1U - (boi + 1U));
 
 		if (UNLIKELY(hx != conx)) {
-			return -1;
+			return NOT_A_QUO;
 		}
 	}
+	/* let them know where the prefix ends */
+	prfx = line;
+	prfz = llen;
+	return q;
+}
 
-#if 0
-/* convert to 2-books */
-	if (LIKELY(q.s && q.f)) {
-		/* add to book */
-		qx_t x = btree_add(BOOK(q.s), q.p, q.q);
-		char buf[256U];
-		size_t len = 0U;
-
-		buf[len++] = (char)(q.s ^ '@');
-		buf[len++] = '2';
-		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
-		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, x);
-		buf[len++] = '\n';
-
-		fwrite(line, 1, llen, stdout);
-		fwrite(buf, 1, len, stdout);
+static quo_t
+adq(quo_t q)
+{
+	switch (q.f) {
+		qx_t tmp;
+	case LVL_3:
+		tmp = btree_add(BOOK(q.s), q.p, q.q);
+		q.o = tmp - q.q;
+		q.q = tmp;
+		break;
+	case LVL_2:
+		q.o = btree_put(BOOK(q.s), q.p, q.q);
+		break;
+	case LVL_1:
+		/* we'd have to pop anything more top-level in the books ... */
+		q.o = btree_put(BOOK(q.s), q.p, q.q);
+		break;
+	case LVL_0:
+	default:
+		/* we don't know what to do */
+		return NOT_A_QUO;
 	}
-#elif 1
+	return q;
+}
+
+static void
+prq1(quo_t UNUSED(q))
+{
 /* convert to 1-books, aligned */
-	if (LIKELY(q.s && q.f)) {
-		/* add to book */
-		(void)btree_add(BOOK(q.s), q.p, q.q);
-	}
-
 again:
 	with (btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS}) {
 		static px_t b1, a1;
@@ -263,11 +287,50 @@ again:
 		len += qxtostr(buf + len, sizeof(buf) - len, A1);
 		buf[len++] = '\n';
 
-		fwrite(line, 1, llen, stdout);
+		fwrite(prfx, 1, prfz, stdout);
 		fwrite(buf, 1, len, stdout);
 	}
-#endif
-	return 0;
+	return;
+}
+
+static void
+prq2(quo_t q)
+{
+/* print 2-books */
+	char buf[256U];
+	size_t len = 0U;
+
+	buf[len++] = (char)(q.s ^ '@');
+	buf[len++] = '2';
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, q.p);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, q.q);
+	buf[len++] = '\n';
+
+	fwrite(prfx, 1, prfz, stdout);
+	fwrite(buf, 1, len, stdout);
+	return;
+}
+
+static void
+prq3(quo_t q)
+{
+/* convert to 3-books */
+	char buf[256U];
+	size_t len = 0U;
+
+	buf[len++] = (char)(q.s ^ '@');
+	buf[len++] = '3';
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, q.p);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, q.q - q.o);
+	buf[len++] = '\n';
+
+	fwrite(prfx, 1, prfz, stdout);
+	fwrite(buf, 1, len, stdout);
+	return;
 }
 
 
@@ -284,6 +347,17 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	prq = prq2;
+	if (argi->dash1_flag) {
+		prq = prq1;
+	}
+	if (argi->dash3_flag) {
+		prq = prq3;
+	}
+	if (argi->dash2_flag) {
+		prq = prq2;
+	}
+
 	if (argi->instr_arg) {
 		cont = argi->instr_arg;
 		conz = strlen(cont);
@@ -297,7 +371,16 @@ main(int argc, char *argv[])
 		size_t llen = 0UL;
 
 		for (ssize_t nrd; (nrd = getline(&line, &llen, stdin)) > 0;) {
-			procln(line, nrd);
+			quo_t q;
+
+			if (NOT_A_QUO_P(q = rdq(line, nrd))) {
+				;
+			} else if (NOT_A_QUO_P(q = adq(q))) {
+				;
+			} else {
+				/* print line prefix */
+				prq(q);
+			}
 		}
 		free(line);
 	}
