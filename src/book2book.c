@@ -127,6 +127,7 @@ static size_t prfz;
 
 /* for N-books */
 static size_t ntop;
+static qx_t cqty;
 static px_t *bids;
 static px_t *asks;
 static qx_t *bszs;
@@ -376,11 +377,11 @@ prqn(quo_t UNUSED(q))
 		    !memcmp(b, bids, sizeof(b)) &&
 		    !memcmp(a, asks, sizeof(a))) {
 			/* nothing's changed, sod off */
-			break;
+			return;
 		}
 
-		/* uncrossing here */
 		if (unxp) {
+			/* uncrossing code here */
 			;
 		}
 
@@ -424,6 +425,62 @@ prqn(quo_t UNUSED(q))
 	return;
 }
 
+static void
+prqc(quo_t UNUSED(q))
+{
+/* convert to consolidated 1-books, aligned */
+	static px_t b1, a1;
+	qx_t bc = 0.dd, ac = 0.dd;
+	qx_t Bc = 0.dd, Ac = 0.dd;
+
+	do {
+		btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS};
+		char buf[256U];
+		size_t len = 0U;
+
+		for (; btree_iter_next(&bi) && Bc < cqty;
+		     bc += bi.k * bi.v, Bc += bi.v);
+		for (; btree_iter_next(&ai) && Ac < cqty;
+		     ac += ai.k * ai.v, Ac += ai.v);
+		/* get prices */
+		bc /= Bc;
+		ac /= Ac;
+
+		if ((px_t)bc == b1 && (px_t)ac == a1) {
+			break;
+		}
+
+		/* check self-crossing */
+		if (unxp) {
+			;
+		}
+
+		/* assign to state vars already */
+		b1 = (px_t)bc, a1 = (px_t)ac;
+
+		if (Bc >= cqty) {
+			len += pxtostr(buf + len, sizeof(buf) - len, b1);
+		}
+		buf[len++] = '\t';
+		if (Ac >= cqty) {
+			len += pxtostr(buf + len, sizeof(buf) - len, a1);
+		}
+		buf[len++] = '\t';
+		if (Bc >= cqty) {
+			len += qxtostr(buf + len, sizeof(buf) - len, Bc);
+		}
+		buf[len++] = '\t';
+		if (Ac >= cqty) {
+			len += qxtostr(buf + len, sizeof(buf) - len, Ac);
+		}
+		buf[len++] = '\n';
+
+		fwrite(prfx, 1, prfz, stdout);
+		fwrite(buf, 1, len, stdout);
+	} while (unxp && ac <= bc);
+	return;
+}
+
 
 #include "book2book.yucc"
 
@@ -457,6 +514,16 @@ Error: cannot read number of levels for top-N book");
 			goto out;
 		}
 		prq = prqn;
+	}
+
+	if (argi->dashC_arg) {
+		if ((cqty = strtoqx(argi->dashC_arg, NULL)) <= 0.dd) {
+			errno = 0, serror("\
+Error: cannot read consolidated quantity");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		prq = prqc;
 	}
 
 	if (argi->instr_arg) {
