@@ -83,6 +83,7 @@ typedef struct {
 
 /* output mode */
 static void(*prq)(quo_t);
+static unsigned int unxp;
 
 
 static inline size_t
@@ -247,12 +248,16 @@ static void
 prq1(quo_t UNUSED(q))
 {
 /* convert to 1-books, aligned */
-again:
-	with (btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS}) {
+	btree_iter_t bi, ai;
+
+	do {
 		static px_t b1, a1;
 		static qx_t B1, A1;
 		char buf[256U];
 		size_t len = 0U;
+
+		bi = (btree_iter_t){.t = BIDS};
+		ai = (btree_iter_t){.t = ASKS};
 
 		/* get the top of the book values */
 		if (!btree_iter_next(&bi)) {
@@ -265,31 +270,29 @@ again:
 		}
 
 		/* check self-crossing */
-		if (ai.k <= bi.k && ai.k < a1) {
+		if (unxp && ai.k <= bi.k && ai.k < a1) {
 			/* invalidate bid and start again */
 			btree_put(BIDS, bi.k, 0.dd);
-			goto again;
-		} else if (bi.k >= ai.k && bi.k > b1) {
+		} else if (unxp && bi.k >= ai.k && bi.k > b1) {
 			/* invalidate ask and start again */
 			btree_put(ASKS, ai.k, 0.dd);
-			goto again;
+		} else {
+			/* yep, top level change */
+			b1 = bi.k, B1 = bi.v;
+			a1 = ai.k, A1 = ai.v;
 		}
-
-		/* yep, top level change */
-		b1 = bi.k, B1 = bi.v;
-		a1 = ai.k, A1 = ai.v;
-		len += pxtostr(buf + len, sizeof(buf) - len, b1);
+		len += pxtostr(buf + len, sizeof(buf) - len, bi.k);
 		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, a1);
+		len += pxtostr(buf + len, sizeof(buf) - len, ai.k);
 		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, B1);
+		len += qxtostr(buf + len, sizeof(buf) - len, bi.v);
 		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, A1);
+		len += qxtostr(buf + len, sizeof(buf) - len, ai.v);
 		buf[len++] = '\n';
 
 		fwrite(prfx, 1, prfz, stdout);
 		fwrite(buf, 1, len, stdout);
-	}
+	} while (unxp && ai.k <= bi.k);
 	return;
 }
 
