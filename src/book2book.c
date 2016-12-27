@@ -390,7 +390,7 @@ prqn(quo_t UNUSED(q))
 			size_t len = 0U;
 
 			len += snprintf(buf + len, sizeof(buf) - len,
-					"C%zu", i + 1U);
+					"c%zu", i + 1U);
 			buf[len++] = '\t';
 			if (B[i]) {
 				len += pxtostr(
@@ -458,6 +458,9 @@ prqc(quo_t UNUSED(q))
 		/* assign to state vars already */
 		b1 = (px_t)bc, a1 = (px_t)ac;
 
+		buf[len++] = 'C';
+		len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+		buf[len++] = '\t';
 		if (Bc >= cqty) {
 			len += pxtostr(buf + len, sizeof(buf) - len, b1);
 		}
