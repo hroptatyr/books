@@ -53,26 +53,36 @@ typedef union {
 } btree_val_t;
 
 struct btree_s {
-	size_t innerp:1;
-	size_t n:63;
+	uint32_t n;
+	uint32_t innerp:1;
+	uint32_t descp:1;
 	KEY_T key[63U + 1U/*spare*/];
 	btree_val_t val[64U];
 	btree_t next;
 };
 
-/* our operators work inverse to ORDER, so flip them around */
-#if !defined ORDER
-# error need an ordering relation
-#endif	/* !ORDER */
-#define OP	paste(ORDER,=)
-
 
+static bool
+node_free_p(btree_t t)
+{
+/* check if btree cell can be pruned
+ * and we say a btree cell can be pruned if all of its children can be pruned */
+	size_t nul;
+	if (!t->innerp) {
+		for (nul = 0U; nul < t->n && t->val[nul].v <= 0.dd; nul++);
+		return nul >= t->n;
+	}
+	/* otherwise recur */
+	for (nul = 0U; nul <= t->n && node_free_p(t->val[nul].t); nul++);
+	return nul > t->n;
+}
+
 static void
 root_split(btree_t root)
 {
 	/* root got split, bollocks */
-	const btree_t left = make_btree();
-	const btree_t rght = make_btree();
+	const btree_t left = make_btree(root->descp);
+	const btree_t rght = make_btree(root->descp);
 	const size_t piv = countof(root->key) / 2U - 1U;
 
 	/* T will become the new root so push stuff to LEFT ... */
@@ -101,35 +111,65 @@ root_split(btree_t root)
 static void
 node_split(btree_t prnt, size_t idx)
 {
-/* PRNT's IDX-th child will be split */
+/* PaReNT's IDX-th child will be split */
 	const btree_t chld = prnt->val[idx].t;
-	const btree_t rght = make_btree();
 	const size_t piv = countof(chld->key) / 2U - 1U;
+	btree_t rght;
+	size_t nul;
 
-	/* shift things to RGHT */
-	memcpy(rght->key, chld->key + piv + 1U, (piv + 0U) * sizeof(*chld->key));
-	memcpy(rght->val, chld->val + piv + 1U, (piv + 1U) * sizeof(*chld->val));
-	rght->innerp = chld->innerp;
-	rght->n = piv;
-	rght->next = NULL;
+	/* do a scan to see if we have spare items */
+	for (nul = 0U; nul <= prnt->n && !node_free_p(prnt->val[nul].t); nul++);
 
-	if (idx < prnt->n) {
-		/* make some room then */
+	if (nul > prnt->n) {
+		/* no cell to prune, create one */
+		rght = make_btree(chld->descp);
+	} else {
+		/* hijack the value cell */
+		rght = prnt->val[nul].t;
+		/* adjust next pointers */
+		if (nul) {
+			prnt->val[nul - 1U].t->next = rght->next;
+		}
+	}
+
+	if (nul > idx) {
+		/* spare item is far to the right */
 		memmove(prnt->key + idx + 1U,
 			prnt->key + idx + 0U,
-			(countof(prnt->key) - (idx + 1U)) * sizeof(*prnt->key));
+			(nul - idx) * sizeof(*prnt->key));
 		memmove(prnt->val + idx + 1U,
 			prnt->val + idx + 0U,
-			(countof(prnt->key) - (idx + 1U)) * sizeof(*prnt->val));
+			(nul - idx) * sizeof(*prnt->val));
+	} else if (nul < idx) {
+		/* spare item to the left, good job */
+		memmove(prnt->key + nul + 0U,
+			prnt->key + nul + 1U,
+			(idx - nul) * sizeof(*prnt->key));
+		memmove(prnt->val + nul + 0U,
+			prnt->val + nul + 1U,
+			(idx - nul) * sizeof(*prnt->val));
+		/* whole to the left, adjust index */
+		idx--;
 	}
-	/* and now massage LEFT which is C and T */
-	prnt->key[idx] = chld->key[piv];
-	prnt->n++;
+
+	/* massage PaReNT */
+	prnt->n += nul > prnt->n;
+	prnt->key[idx + 0U] = chld->key[piv];
 	prnt->val[idx + 1U].t = rght;
+
+	/* then shift things to RGHT */
+	memcpy(rght->key, chld->key + piv + 1U, (piv + 0U) * sizeof(*chld->key));
+	memcpy(rght->val, chld->val + piv + 1U, (piv + 1U) * sizeof(*chld->val));
+	memset(rght->key + piv, -1,
+	       (countof(rght->key) - piv) * sizeof(*rght->key));
+	rght->innerp = chld->innerp;
+	rght->next = chld->next;
+	rght->n = piv;
+	/* and CHLD (the left one) */
 	chld->n = piv + !chld->innerp;
+	chld->next = rght;
 	memset(chld->key + chld->n, -1,
 	       (countof(chld->key) - chld->n) * sizeof(*chld->key));
-	chld->next = rght;
 	return;
 }
 
@@ -139,8 +179,14 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	size_t nul;
 	size_t i;
 
-	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
-	/* so k is !OP t->key[i] or t->key[i] is nan */
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
 
 	if (k == t->key[i]) {
 		/* got him */
@@ -183,8 +229,14 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	btree_t c;
 	size_t i;
 
-	for (i = 0U; i < t->n && !(k OP t->key[i]); i++);
-	/* so k is !OP t->key[i] or t->key[i] is nan */
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
 
 	/* descent */
 	c = t->val[i].t;
@@ -197,19 +249,75 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 		splitp = twig_add(c, k, v);
 	}
 
-	if (splitp) {
+	if (UNLIKELY(splitp)) {
 		/* C needs splitting, not again */
 		node_split(t, i);
 	}
 	return t->n >= countof(t->key) - 1U;
 }
 
+
+#include <stdio.h>
+static void
+__prnt(btree_t t, size_t lvl)
+{
+	printf("%p\tL%zu", t, lvl);
+	if (t->innerp) {
+		for (size_t i = 0U; i < t->n; i++) {
+			printf("\t%f", (double)t->key[i]);
+		}
+	} else {
+		/* leaves */
+		for (size_t i = 0U; i < t->n; i++) {
+			printf("\t%f|%f", (double)t->key[i], (double)t->val[i].v);
+		}
+	}
+	putchar('\n');
+	if (t->innerp) {
+		for (size_t i = 0U; i <= t->n; i++) {
+			__prnt(t->val[i].t, lvl + 1U);
+		}
+	}
+	return;
+}
+
+static void
+__chck(btree_t t, KEY_T thresh)
+{
+	switch (t->descp) {
+	case 0U:
+		for (size_t i = 0U; i < t->n; i++) {
+			if (t->key[i] > thresh) {
+				printf("ALARM %f > %f\n",
+				       (double)t->key[i], (double)thresh);
+			}
+		}
+		break;
+	case 1U:
+		for (size_t i = 0U; i < t->n; i++) {
+			if (t->key[i] < thresh) {
+				printf("ALARM %f < %f\n",
+				       (double)t->key[i], (double)thresh);
+			}
+		}
+		break;
+	}
+	if (!t->innerp) {
+		return;
+	}
+	for (size_t i = 0U; i < t->n; i++) {
+		__chck(t->val[i].t, t->key[i]);
+	}
+	return;
+}
+
 
 btree_t
-make_btree(void)
+make_btree(bool descp)
 {
 	btree_t r = calloc(1U, sizeof(*r));
 
+	r->descp = descp;
 	memset(r->key, -1, sizeof(r->key));
 	return r;
 }
@@ -256,7 +364,7 @@ btree_add(btree_t t, KEY_T k, VAL_T v)
 VAL_T
 btree_put(btree_t t, KEY_T k, VAL_T v)
 {
-	VAL_T *vp;
+	VAL_T *vp, w;
 	bool splitp;
 
 	/* check if root has leaves */
@@ -265,55 +373,59 @@ btree_put(btree_t t, KEY_T k, VAL_T v)
 	} else {
 		splitp = twig_add(t, k, &vp);
 	}
-	/* be saturating */
-	v = v > 0.dd ? v : 0.dd;
-	*vp = v;
+	/* we promised to return the old value */
+	w = *vp;
+	*vp = v > 0.dd ? v : 0.dd;
 
 	if (UNLIKELY(splitp)) {
 		/* root got split, bollocks */
 		root_split(t);
 	}
-	return v;
+	return w;
 }
 
-KEY_T
-btree_top(btree_t t, VAL_T *v)
+bool
+btree_iter_next(btree_iter_t *iter)
 {
-	for (; t->innerp; t = t->val->t);
-	do {
-		size_t i;
-		for (i = 0U; i < t->n; i++) {
-			if (LIKELY(t->val[i].v > 0.dd)) {
-				if (LIKELY(v != NULL)) {
-					*v = t->val[i].v;
-				}
-				return t->key[i];
-			}
-		}
-	} while ((t = t->next));
-	return nand32("");
-}
-
-KEY_T
-btree_bot(btree_t t, VAL_T *v)
-{
-	KEY_T best_max = nand32("");
-	VAL_T best_val;
-
-	for (; t->innerp; t = t->val->t);
-	do {
-		size_t i;
-		for (i = 0U; i < t->n; i++) {
-			if (LIKELY(t->val[i].v > 0.dd)) {
-				best_max = t->key[i];
-				best_val = t->val[i].v;
-			}
-		}
-	} while ((t = t->next));
-	if (LIKELY(v != NULL && !isnand32(best_max))) {
-		*v = best_val;
+	if (UNLIKELY(iter->t == NULL)) {
+		return false;
 	}
-	return best_max;
+	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
+	do {
+		for (size_t i = iter->i; i < iter->t->n; i++) {
+			if (LIKELY(iter->t->val[i].v > 0.dd)) {
+				/* good one */
+				iter->k = iter->t->key[i];
+				iter->v = iter->t->val[i].v;
+				iter->i = i + 1U;
+				return true;
+			}
+		}
+		/* reset index */
+		iter->i = 0U;
+	} while ((iter->t = iter->t->next));
+	return false;
+}
+
+
+/* for debugging purposes */
+void
+btree_prnt(btree_t t)
+{
+	__prnt(t, 0U);
+	return;
+}
+
+void
+btree_chck(btree_t t)
+{
+	if (!t->innerp) {
+		return;
+	}
+	for (size_t i = 0U; i < t->n; i++) {
+		__chck(t->val[i].t, t->key[i]);
+	}
+	return;
 }
 
 /* btree.c ends here */

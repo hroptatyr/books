@@ -1,6 +1,6 @@
-/*** btree.h -- simple b+tree impl
+/*** hash.h -- hashing strings
  *
- * Copyright (C) 2016-2017 Sebastian Freundt
+ * Copyright (C) 2014-2017 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -33,38 +33,17 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- **/
-#if !defined INCLUDED_btree_h_
-#define INCLUDED_btree_h_
-#include <stdbool.h>
-#include "books.h"
+ ***/
+#if !defined INCLUDED_hash_h_
+#define INCLUDED_hash_h_
+#include <stdint.h>
 
-typedef struct btree_s *btree_t;
+/**
+ * Unsigned integral hash type.. */
+typedef uint32_t hx_t;
 
-typedef struct {
-	btree_t t;
-	size_t i;
-	KEY_T k;
-	VAL_T v;
-} btree_iter_t;
+/**
+ * Return a hash (with the hash function du jour) of STR of size LEN. */
+extern hx_t hash(const void *str, size_t len);
 
-
-extern btree_t make_btree(bool descp);
-extern void free_btree(btree_t);
-
-extern VAL_T btree_add(btree_t, KEY_T, VAL_T);
-extern VAL_T btree_put(btree_t, KEY_T, VAL_T);
-
-extern KEY_T btree_min(btree_t, VAL_T*);
-extern KEY_T btree_max(btree_t, VAL_T*);
-extern KEY_T btree_top(btree_t, VAL_T*);
-extern KEY_T btree_bot(btree_t, VAL_T*);
-
-extern bool btree_iter_next(btree_iter_t*);
-
-
-/* for debugging */
-extern void btree_prnt(btree_t);
-extern void btree_chck(btree_t);
-
-#endif	/* INCLUDED_btree_h_ */
+#endif	/* INCLUDED_hash_h_ */
