@@ -139,7 +139,7 @@ init(void)
 	BIDS = make_btree(true);
 	ASKS = make_btree(false);
 
-	if (ntop) {
+	if (ntop > 1U) {
 		bids = calloc(ntop, sizeof(*bids));
 		asks = calloc(ntop, sizeof(*asks));
 		bszs = calloc(ntop, sizeof(*bszs));
@@ -151,7 +151,7 @@ init(void)
 static void
 fini(void)
 {
-	if (ntop) {
+	if (ntop > 1U) {
 		free(bids);
 		free(asks);
 		free(bszs);
@@ -291,6 +291,9 @@ prq1(quo_t UNUSED(q))
 			b1 = bi.k, B1 = bi.v;
 			a1 = ai.k, A1 = ai.v;
 		}
+		buf[len++] = 'c';
+		buf[len++] = '1';
+		buf[len++] = '\t';
 		len += pxtostr(buf + len, sizeof(buf) - len, bi.k);
 		buf[len++] = '\t';
 		len += pxtostr(buf + len, sizeof(buf) - len, ai.k);
@@ -598,7 +601,11 @@ Error: cannot read number of levels for top-N book");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
-		prq = prqn;
+		if (ntop > 1U) {
+			prq = prqn;
+		} else {
+			prq = prq1;
+		}
 	}
 
 	if (argi->dashC_arg) {
