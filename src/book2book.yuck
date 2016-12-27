@@ -23,3 +23,4 @@ decrements if QUANTITY is negative) to a price level.
   -1                        Output top-level book.
   -2                        Output level-2 book.
   -3                        Output level-3 book.
+  -N NUMBER                 Output NUMBER price levels.

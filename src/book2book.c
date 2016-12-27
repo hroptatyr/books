@@ -41,6 +41,8 @@
 #include <string.h>
 #include <stdio.h>
 #undef _GNU_SOURCE
+#include <stdarg.h>
+#include <errno.h>
 #if defined HAVE_DFP754_H
 # include <dfp754.h>
 #endif	/* HAVE_DFP754_H */
@@ -86,6 +88,22 @@ static void(*prq)(quo_t);
 static unsigned int unxp;
 
 
+static __attribute__((format(printf, 1, 2))) void
+serror(const char *fmt, ...)
+{
+	va_list vap;
+	va_start(vap, fmt);
+	vfprintf(stderr, fmt, vap);
+	va_end(vap);
+	if (errno) {
+		fputc(':', stderr);
+		fputc(' ', stderr);
+		fputs(strerror(errno), stderr);
+	}
+	fputc('\n', stderr);
+	return;
+}
+
 static inline size_t
 memncpy(char *restrict tgt, const char *src, size_t zrc)
 {
@@ -107,46 +125,37 @@ static btree_t book[2U];
 static const char *prfx;
 static size_t prfz;
 
+/* for N-books */
+static size_t ntop;
+static px_t *bids;
+static px_t *asks;
+static qx_t *bszs;
+static qx_t *aszs;
+
 static void
 init(void)
 {
 	BIDS = make_btree(true);
 	ASKS = make_btree(false);
+
+	if (ntop) {
+		bids = calloc(ntop, sizeof(*bids));
+		asks = calloc(ntop, sizeof(*asks));
+		bszs = calloc(ntop, sizeof(*bszs));
+		aszs = calloc(ntop, sizeof(*aszs));
+	}
 	return;
 }
 
 static void
 fini(void)
 {
-#if 0
-	{
-		btree_iter_t i;
-		char buf[16384U];
-		size_t len;
-
-		len = memncpy(buf, "BIDS", 4U);
-		for (i.t = BIDS; btree_iter_next(&i);) {
-			buf[len++] = ' ';
-			buf[len++] = ' ';
-			len += pxtostr(buf + len, sizeof(buf) - len, i.k);
-			buf[len++] = '|';
-			len += qxtostr(buf + len, sizeof(buf) - len, i.v);
-		}
-		buf[len++] = '\n';
-		fwrite(buf, 1, len, stdout);
-
-		len = memncpy(buf, "ASKS", 4U);
-		for (i.t = ASKS; btree_iter_next(&i);) {
-			buf[len++] = ' ';
-			buf[len++] = ' ';
-			len += pxtostr(buf + len, sizeof(buf) - len, i.k);
-			buf[len++] = '|';
-			len += qxtostr(buf + len, sizeof(buf) - len, i.v);
-		}
-		buf[len++] = '\n';
-		fwrite(buf, 1, len, stdout);
+	if (ntop) {
+		free(bids);
+		free(asks);
+		free(bszs);
+		free(aszs);
 	}
-#endif
 
 	btree_chck(BIDS);
 	btree_chck(ASKS);
@@ -336,6 +345,85 @@ prq3(quo_t q)
 	return;
 }
 
+static void
+prqn(quo_t UNUSED(q))
+{
+/* convert to n-books, aligned */
+	px_t b[ntop];
+	qx_t B[ntop];
+	px_t a[ntop];
+	qx_t A[ntop];
+
+	memset(b, 0, sizeof(b));
+	memset(B, 0, sizeof(B));
+	memset(a, 0, sizeof(a));
+	memset(A, 0, sizeof(A));
+
+	do {
+		btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS};
+
+		/* get the top of the book values */
+		for (size_t i = 0U; i < ntop && btree_iter_next(&bi); i++) {
+			b[i] = bi.k;
+			B[i] = bi.v;
+		}
+		for (size_t i = 0U; i < ntop && btree_iter_next(&ai); i++) {
+			a[i] = ai.k;
+			A[i] = ai.v;
+		}
+		if (!memcmp(B, bszs, sizeof(B)) &&
+		    !memcmp(A, aszs, sizeof(A)) &&
+		    !memcmp(b, bids, sizeof(b)) &&
+		    !memcmp(a, asks, sizeof(a))) {
+			/* nothing's changed, sod off */
+			break;
+		}
+
+		/* uncrossing here */
+		if (unxp) {
+			;
+		}
+
+		for (size_t i = 0U; i < ntop; i++) {
+			char buf[256U];
+			size_t len = 0U;
+
+			len += snprintf(buf + len, sizeof(buf) - len,
+					"C%zu", i + 1U);
+			buf[len++] = '\t';
+			if (B[i]) {
+				len += pxtostr(
+					buf + len, sizeof(buf) - len, b[i]);
+			}
+			buf[len++] = '\t';
+			if (A[i]) {
+				len += pxtostr(
+					buf + len, sizeof(buf) - len, a[i]);
+			}
+			buf[len++] = '\t';
+			if (B[i]) {
+				len += qxtostr(
+					buf + len, sizeof(buf) - len, B[i]);
+			}
+			buf[len++] = '\t';
+			if (A[i]) {
+				len += qxtostr(
+					buf + len, sizeof(buf) - len, A[i]);
+			}
+			buf[len++] = '\n';
+
+			fwrite(prfx, 1, prfz, stdout);
+			fwrite(buf, 1, len, stdout);
+		}
+	} while (unxp && a[0U] <= b[0U]);
+
+	memcpy(bids, b, sizeof(b));
+	memcpy(asks, a, sizeof(a));
+	memcpy(bszs, B, sizeof(B));
+	memcpy(aszs, A, sizeof(A));
+	return;
+}
+
 
 #include "book2book.yucc"
 
@@ -359,6 +447,16 @@ main(int argc, char *argv[])
 	}
 	if (argi->dash2_flag) {
 		prq = prq2;
+	}
+
+	if (argi->dashN_arg) {
+		if (!(ntop = strtoul(argi->dashN_arg, NULL, 10))) {
+			errno = 0, serror("\
+Error: cannot read number of levels for top-N book");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		prq = prqn;
 	}
 
 	if (argi->instr_arg) {
