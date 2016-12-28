@@ -251,6 +251,10 @@ adq(quo_t q)
 		/* we don't know what to do */
 		return NOT_A_QUO;
 	}
+	if (UNLIKELY(q.q == q.o)) {
+		/* we're not repeating stuff */
+		return NOT_A_QUO;
+	}
 	return q;
 }
 
