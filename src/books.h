@@ -36,13 +36,10 @@
  **/
 #if !defined INCLUDED_books_h_
 #define INCLUDED_books_h_
+#include <stdlib.h>
 
-#if !defined KEY_T
-# define KEY_T	_Decimal32
-#endif	/* !KEY_T */
-#if !defined VAL_T
-# define VAL_T	_Decimal64
-#endif	/* !VAL_T */
+typedef _Decimal32 px_t;
+typedef _Decimal64 qx_t;
 
 /* our books look like
  * T... INS ACT PRC QTY
@@ -58,5 +55,64 @@
  *   - m1 for mid-points within the top-level
  *   - MQ for mid-points within consolidation of quantity Q
  *   - T0 for trades (at ask) and S0 for sells at bid */
+
+typedef enum {
+	SIDE_UNK,
+	SIDE_ASK,
+	SIDE_BID,
+} side_t;
+
+typedef struct {
+	side_t s;
+	enum {
+		LVL_0,
+		LVL_1,
+		LVL_2,
+		LVL_3,
+	} f;
+	px_t p;
+	px_t r;
+	qx_t q;
+	qx_t o;
+} quo_t;
+
+#define NOT_A_QUO	(quo_t){SIDE_UNK}
+#define NOT_A_QUO_P(x)	!((x).s)
+
+_Static_assert(sizeof(quo_t) == 32U, "quo_t of wrong size");
+
+typedef struct {
+	void *quos[2U];
+} book_t;
+
+
+extern book_t make_book(void);
+extern book_t free_book(book_t);
+
+/**
+ * Add QUO to BOOK.
+ * QUO will be enriched with the R and O slot, for old price level
+ * and old quantity, respectively. */
+extern quo_t book_add(book_t, quo_t);
+
+/**
+ * Return the top-most quote of BOOK'S SIDE. */
+extern quo_t book_top(book_t, side_t);
+
+/**
+ * Put the top-most N price levels into PX (and QX) and return the number
+ * of levels filled. */
+extern size_t
+book_tops(px_t*restrict, qx_t*restrict, book_t, side_t, size_t n);
+
+/**
+ * Return the consolidated quote of BOOK'S SIDE that equals or exceeds Q. */
+extern quo_t book_ctop(book_t, side_t, qx_t Q);
+
+/**
+ * Put the top-most N consolidated price levels into PX (and QX) and return
+ * the number of levels filled.  Level i equals or exceeds i*Q in quantity. */
+extern size_t
+book_ctops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t Q, size_t n);
 
 #endif	/* INCLUDED_books_h_ */

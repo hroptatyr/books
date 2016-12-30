@@ -49,39 +49,13 @@
 #include "dfp754_d32.h"
 #include "dfp754_d64.h"
 #include "hash.h"
-#include "btree.h"
+#include "books.h"
 #include "nifty.h"
 
-typedef _Decimal32 px_t;
-typedef _Decimal64 qx_t;
 #define strtopx		strtod32
 #define pxtostr		d32tostr
 #define strtoqx		strtod64
 #define qxtostr		d64tostr
-
-typedef enum {
-	SIDE_UNK,
-	SIDE_ASK,
-	SIDE_BID,
-} side_t;
-
-typedef enum {
-	LVL_0,
-	LVL_1,
-	LVL_2,
-	LVL_3,
-} flav_t;
-
-typedef struct {
-	side_t s;
-	flav_t f;
-	px_t p;
-	qx_t q;
-	qx_t o;
-} quo_t;
-
-#define NOT_A_QUO	(quo_t){SIDE_UNK}
-#define NOT_A_QUO_P(x)	!((x).s)
 
 /* output mode */
 static void(*prq)(quo_t);
@@ -109,10 +83,10 @@ static const char *cont;
 static size_t conz;
 static hx_t conx;
 
-static btree_t book[2U];
-#define BOOK(s)		book[(s) - 1U]
-#define BIDS		BOOK(SIDE_BID)
-#define ASKS		BOOK(SIDE_ASK)
+static book_t book;
+//#define BOOK(s)		book[(s) - 1U]
+//#define BIDS		BOOK(SIDE_BID)
+//#define ASKS		BOOK(SIDE_ASK)
 
 /* per-run variables */
 static const char *prfx;
@@ -129,8 +103,7 @@ static qx_t *aszs;
 static void
 init(void)
 {
-	BIDS = make_btree(true);
-	ASKS = make_btree(false);
+	book = make_book();
 
 	if (ntop > 1U) {
 		bids = calloc(ntop, sizeof(*bids));
@@ -151,11 +124,7 @@ fini(void)
 		free(aszs);
 	}
 
-	btree_chck(BIDS);
-	btree_chck(ASKS);
-
-	free_btree(BIDS);
-	free_btree(ASKS);
+	book = free_book(book);
 	return;
 }
 
@@ -187,7 +156,7 @@ rdq(const char *line, size_t llen)
 		/* map 1, 2, 3 to LVL_{1,2,3}
 		 * everything else goes to LVL_0 */
 		f ^= '0';
-		q.f = (flav_t)(f & -(f < 4U));
+		q.f = /*(flav_t)*/(f & -(f < 4U));
 	}
 
 	/* rewind manually */
@@ -222,100 +191,54 @@ rdq(const char *line, size_t llen)
 	return q;
 }
 
-static __attribute__((noinline)) quo_t
-adq(quo_t q)
-{
-	switch (q.f) {
-		qx_t tmp;
-		btree_iter_t i;
-	case LVL_3:
-		tmp = btree_add(BOOK(q.s), q.p, q.q);
-		q.o = tmp - q.q;
-		q.q = tmp;
-		break;
-	case LVL_2:
-		q.o = btree_put(BOOK(q.s), q.p, q.q);
-		break;
-	case LVL_1:
-		if (UNLIKELY(q.q <= 0.dd)) {
-			/* what an odd level-1 quote */
-			return NOT_A_QUO;
-		}
-		/* we'd have to pop anything more top-level in the books ...
-		 * we put the value first so it's guaranteed to be in there */
-		q.o = btree_put(BOOK(q.s), q.p, q.q);
-		/* now iter away anything from top that isn't our quote */
-		i = (btree_iter_t){.t = BOOK(q.s)};
-		while (btree_iter_next(&i) && i.k != q.p) {
-			tmp = btree_put(BOOK(q.s), i.k, 0.dd);
-			prq((quo_t){q.s, q.f, i.k, 0.dd, tmp});
-		}
-		break;
-	case LVL_0:
-	default:
-		/* we don't know what to do */
-		return NOT_A_QUO;
-	}
-	if (UNLIKELY(q.q == q.o)) {
-		/* we're not repeating stuff */
-		return NOT_A_QUO;
-	}
-	prq(q);
-	return q;
-}
-
 static void
 prq1(quo_t UNUSED(q))
 {
 /* convert to 1-books, aligned */
-	btree_iter_t bi, ai;
-
+	quo_t b, a;
 	do {
-		static px_t b1, a1;
-		static qx_t B1, A1;
+		static quo_t oldb, olda;
 		char buf[256U];
 		size_t len = 0U;
 
-		bi = (btree_iter_t){.t = BIDS};
-		ai = (btree_iter_t){.t = ASKS};
+		b = book_top(book, SIDE_BID);
+		a = book_top(book, SIDE_ASK);
 
-		/* get the top of the book values */
-		if (!btree_iter_next(&bi)) {
-			break;
-		} else if (!btree_iter_next(&ai)) {
-			break;
-		} else if ((bi.k == b1 && bi.v == B1 &&
-			    ai.k == a1 && ai.v == A1)) {
+		if ((b.p == oldb.p && b.q == oldb.q &&
+		     a.p == olda.p && a.q == olda.q)) {
 			break;
 		}
 
-		/* check self-crossing */
-		if (unxp && ai.k <= bi.k && ai.k < a1) {
-			/* invalidate bid and start again */
-			btree_put(BIDS, bi.k, 0.dd);
-		} else if (unxp && bi.k >= ai.k && bi.k > b1) {
-			/* invalidate ask and start again */
-			btree_put(ASKS, ai.k, 0.dd);
+		/* uncross */
+		if (0) {
+			;
+		} else if (unxp && a.p <= b.p && a.p < olda.p) {
+			/* remove bid */
+			book_add(book, (quo_t){SIDE_BID, LVL_2, b.p, 0.dd});
+		} else if (unxp && b.p >= a.p && b.p > oldb.p) {
+			/* remove ask */
+			book_add(book, (quo_t){SIDE_ASK, LVL_2, a.p, 0.dd});
 		} else {
 			/* yep, top level change */
-			b1 = bi.k, B1 = bi.v;
-			a1 = ai.k, A1 = ai.v;
+			oldb = b;
+			olda = a;
 		}
+
 		buf[len++] = 'c';
 		buf[len++] = '1';
 		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, bi.k);
+		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
 		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, ai.k);
+		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
 		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, bi.v);
+		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, ai.v);
+		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
 		buf[len++] = '\n';
 
 		fwrite(prfx, 1, prfz, stdout);
 		fwrite(buf, 1, len, stdout);
-	} while (unxp && ai.k <= bi.k);
+	} while (unxp && a.p <= b.p);
 	return;
 }
 
@@ -374,17 +297,9 @@ prqn(quo_t UNUSED(q))
 	memset(A, 0, sizeof(A));
 
 	do {
-		btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS};
+		size_t bn = book_tops(b, B, book, SIDE_BID, ntop);
+		size_t an = book_tops(a, A, book, SIDE_ASK, ntop);
 
-		/* get the top of the book values */
-		for (size_t i = 0U; i < ntop && btree_iter_next(&bi); i++) {
-			b[i] = bi.k;
-			B[i] = bi.v;
-		}
-		for (size_t i = 0U; i < ntop && btree_iter_next(&ai); i++) {
-			a[i] = ai.k;
-			A[i] = ai.v;
-		}
 		if (!memcmp(B, bszs, sizeof(B)) &&
 		    !memcmp(A, aszs, sizeof(A)) &&
 		    !memcmp(b, bids, sizeof(b)) &&
@@ -398,29 +313,30 @@ prqn(quo_t UNUSED(q))
 			;
 		}
 
-		for (size_t i = 0U; i < ntop; i++) {
+		size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+		for (size_t i = 0U; i < n; i++) {
 			char buf[256U];
 			size_t len = 0U;
 
 			len += snprintf(buf + len, sizeof(buf) - len,
 					"c%zu", i + 1U);
 			buf[len++] = '\t';
-			if (B[i]) {
+			if (i < bn) {
 				len += pxtostr(
 					buf + len, sizeof(buf) - len, b[i]);
 			}
 			buf[len++] = '\t';
-			if (A[i]) {
+			if (i < an) {
 				len += pxtostr(
 					buf + len, sizeof(buf) - len, a[i]);
 			}
 			buf[len++] = '\t';
-			if (B[i]) {
+			if (i < bn) {
 				len += qxtostr(
 					buf + len, sizeof(buf) - len, B[i]);
 			}
 			buf[len++] = '\t';
-			if (A[i]) {
+			if (i < an) {
 				len += qxtostr(
 					buf + len, sizeof(buf) - len, A[i]);
 			}
@@ -442,24 +358,17 @@ static void
 prqc(quo_t UNUSED(q))
 {
 /* convert to consolidated 1-books, aligned */
-	static px_t b1, a1;
-	qx_t bc = 0.dd, ac = 0.dd;
-	qx_t Bc = 0.dd, Ac = 0.dd;
+	quo_t bc, ac;
 
 	do {
-		btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS};
+		static quo_t oldb, olda;
 		char buf[256U];
 		size_t len = 0U;
 
-		for (; btree_iter_next(&bi) && Bc < cqty;
-		     bc += bi.k * bi.v, Bc += bi.v);
-		for (; btree_iter_next(&ai) && Ac < cqty;
-		     ac += ai.k * ai.v, Ac += ai.v);
-		/* get prices */
-		bc /= Bc;
-		ac /= Ac;
+		bc = book_ctop(book, SIDE_BID, cqty);
+		ac = book_ctop(book, SIDE_ASK, cqty);
 
-		if ((px_t)bc == b1 && (px_t)ac == a1) {
+		if (bc.p == oldb.p && ac.p == olda.p) {
 			break;
 		}
 
@@ -469,31 +378,31 @@ prqc(quo_t UNUSED(q))
 		}
 
 		/* assign to state vars already */
-		b1 = (px_t)bc, a1 = (px_t)ac;
+		oldb = bc, olda = ac;
 
 		buf[len++] = 'C';
 		len += qxtostr(buf + len, sizeof(buf) - len, cqty);
 		buf[len++] = '\t';
-		if (Bc >= cqty) {
-			len += pxtostr(buf + len, sizeof(buf) - len, b1);
+		if (bc.q >= cqty) {
+			len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
 		}
 		buf[len++] = '\t';
-		if (Ac >= cqty) {
-			len += pxtostr(buf + len, sizeof(buf) - len, a1);
+		if (ac.q >= cqty) {
+			len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
 		}
 		buf[len++] = '\t';
-		if (Bc >= cqty) {
-			len += qxtostr(buf + len, sizeof(buf) - len, Bc);
+		if (bc.q >= cqty) {
+			len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
 		}
 		buf[len++] = '\t';
-		if (Ac >= cqty) {
-			len += qxtostr(buf + len, sizeof(buf) - len, Ac);
+		if (ac.q >= cqty) {
+			len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
 		}
 		buf[len++] = '\n';
 
 		fwrite(prfx, 1, prfz, stdout);
 		fwrite(buf, 1, len, stdout);
-	} while (unxp && ac <= bc);
+	} while (unxp && ac.p <= bc.p);
 	return;
 }
 
@@ -506,29 +415,15 @@ prqCn(quo_t UNUSED(q))
 	px_t a[ntop];
 	qx_t A[ntop];
 
-	do {
-		btree_iter_t bi = {.t = BIDS}, ai = {.t = ASKS};
-		qx_t c, C;
-		qx_t eoc;
+	memset(b, 0, sizeof(b));
+	memset(B, 0, sizeof(B));
+	memset(a, 0, sizeof(a));
+	memset(A, 0, sizeof(A));
 
-		/* get the top of the book values */
-		eoc = cqty;
-		c = C = 0.dd;
-		for (size_t i = 0U; i < ntop; i++, eoc += cqty) {
-			for (; btree_iter_next(&bi) && C < eoc;
-			     c += bi.k * bi.v, C += bi.v);
-			b[i] = (px_t)(c / C);
-			B[i] = C;
-		}
-		eoc = cqty;
-		c = C = 0.dd;
-		for (size_t i = 0U; i < ntop; i++, eoc += cqty) {
-			for (;
-			     btree_iter_next(&ai) && C < eoc;
-			     c += ai.k * ai.v, C += ai.v);
-			a[i] = (px_t)(c / C);
-			A[i] = C;
-		}
+	do {
+		size_t bn = book_ctops(b, B, book, SIDE_BID, cqty, ntop);
+		size_t an = book_ctops(a, A, book, SIDE_ASK, cqty, ntop);
+
 		if (!memcmp(b, bids, sizeof(b)) &&
 		    !memcmp(a, asks, sizeof(a))) {
 			/* nothing's changed, sod off */
@@ -540,30 +435,31 @@ prqCn(quo_t UNUSED(q))
 			;
 		}
 
-		eoc = cqty;
-		for (size_t i = 0U; i < ntop; i++, eoc += cqty) {
+		qx_t eoc = cqty;
+		size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+		for (size_t i = 0U; i < n; i++, eoc += cqty) {
 			char buf[256U];
 			size_t len = 0U;
 
 			buf[len++] = 'C';
 			len += qxtostr(buf + len, sizeof(buf) - len, eoc);
 			buf[len++] = '\t';
-			if (B[i] >= eoc) {
+			if (i < bn) {
 				len += pxtostr(
 					buf + len, sizeof(buf) - len, b[i]);
 			}
 			buf[len++] = '\t';
-			if (A[i] >= eoc) {
+			if (i < an) {
 				len += pxtostr(
 					buf + len, sizeof(buf) - len, a[i]);
 			}
 			buf[len++] = '\t';
-			if (B[i] >= eoc) {
+			if (i < bn) {
 				len += qxtostr(
 					buf + len, sizeof(buf) - len, B[i]);
 			}
 			buf[len++] = '\t';
-			if (A[i] >= eoc) {
+			if (i < an) {
 				len += qxtostr(
 					buf + len, sizeof(buf) - len, A[i]);
 			}
@@ -648,11 +544,17 @@ Error: cannot read consolidated quantity");
 			quo_t q;
 
 			if (NOT_A_QUO_P(q = rdq(line, nrd))) {
-				;
-			} else {
-				/* add to book and print */
-				adq(q);
+				/* invalid quote line */
+				continue;
 			}
+			/* add to book */
+			q = book_add(book, q);
+			if (LIKELY(q.o == q.q)) {
+				/* nothing changed */
+				continue;
+			}
+			/* printx */
+			prq(q);
 		}
 		free(line);
 	}

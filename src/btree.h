@@ -36,8 +36,16 @@
  **/
 #if !defined INCLUDED_btree_h_
 #define INCLUDED_btree_h_
+#include <stdlib.h>
 #include <stdbool.h>
 #include "books.h"
+
+#if !defined KEY_T
+# define KEY_T	_Decimal32
+#endif	/* !KEY_T */
+#if !defined VAL_T
+# define VAL_T	_Decimal64
+#endif	/* !VAL_T */
 
 typedef struct btree_s *btree_t;
 
