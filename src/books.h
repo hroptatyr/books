@@ -44,4 +44,19 @@
 # define VAL_T	_Decimal64
 #endif	/* !VAL_T */
 
+/* our books look like
+ * T... INS ACT PRC QTY
+ * with T being timestamps, the earliest first
+ * INS being an instrument identifier
+ * ACT being
+ *   - B1/A1 for top-level bid/ask,
+ *   - B2/A2 for book bid/ask
+ *   - B3/A3 for changes to the book (bid/ask)
+ *   - c1 for combined top-level (order is bid ask bsz asz)
+ *   - cN for combined price level N
+ *   - CQ for consolidated book at quantity Q
+ *   - m1 for mid-points within the top-level
+ *   - MQ for mid-points within consolidation of quantity Q
+ *   - T0 for trades (at ask) and S0 for sells at bid */
+
 #endif	/* INCLUDED_books_h_ */

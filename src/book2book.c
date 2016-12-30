@@ -104,13 +104,6 @@ serror(const char *fmt, ...)
 	return;
 }
 
-static inline size_t
-memncpy(char *restrict tgt, const char *src, size_t zrc)
-{
-	(void)memcpy(tgt, src, zrc);
-	return zrc;
-}
-
 
 static const char *cont;
 static size_t conz;
@@ -229,11 +222,12 @@ rdq(const char *line, size_t llen)
 	return q;
 }
 
-static quo_t
+static __attribute__((noinline)) quo_t
 adq(quo_t q)
 {
 	switch (q.f) {
 		qx_t tmp;
+		btree_iter_t i;
 	case LVL_3:
 		tmp = btree_add(BOOK(q.s), q.p, q.q);
 		q.o = tmp - q.q;
@@ -243,8 +237,19 @@ adq(quo_t q)
 		q.o = btree_put(BOOK(q.s), q.p, q.q);
 		break;
 	case LVL_1:
-		/* we'd have to pop anything more top-level in the books ... */
+		if (UNLIKELY(q.q <= 0.dd)) {
+			/* what an odd level-1 quote */
+			return NOT_A_QUO;
+		}
+		/* we'd have to pop anything more top-level in the books ...
+		 * we put the value first so it's guaranteed to be in there */
 		q.o = btree_put(BOOK(q.s), q.p, q.q);
+		/* now iter away anything from top that isn't our quote */
+		i = (btree_iter_t){.t = BOOK(q.s)};
+		while (btree_iter_next(&i) && i.k != q.p) {
+			tmp = btree_put(BOOK(q.s), i.k, 0.dd);
+			prq((quo_t){q.s, q.f, i.k, 0.dd, tmp});
+		}
 		break;
 	case LVL_0:
 	default:
@@ -255,6 +260,7 @@ adq(quo_t q)
 		/* we're not repeating stuff */
 		return NOT_A_QUO;
 	}
+	prq(q);
 	return q;
 }
 
@@ -643,11 +649,9 @@ Error: cannot read consolidated quantity");
 
 			if (NOT_A_QUO_P(q = rdq(line, nrd))) {
 				;
-			} else if (NOT_A_QUO_P(q = adq(q))) {
-				;
 			} else {
-				/* print line prefix */
-				prq(q);
+				/* add to book and print */
+				adq(q);
 			}
 		}
 		free(line);
