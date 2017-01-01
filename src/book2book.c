@@ -84,9 +84,6 @@ static size_t conz;
 static hx_t conx;
 
 static book_t book;
-//#define BOOK(s)		book[(s) - 1U]
-//#define BIDS		BOOK(SIDE_BID)
-//#define ASKS		BOOK(SIDE_ASK)
 
 /* per-run variables */
 static const char *prfx;
@@ -156,7 +153,7 @@ rdq(const char *line, size_t llen)
 		/* map 1, 2, 3 to LVL_{1,2,3}
 		 * everything else goes to LVL_0 */
 		f ^= '0';
-		q.f = /*(flav_t)*/(f & -(f < 4U));
+		q.f = (typeof(q.f))(f & -(f < 4U));
 	}
 
 	/* rewind manually */
