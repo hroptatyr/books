@@ -84,9 +84,6 @@ static size_t conz;
 static hx_t conx;
 
 static book_t book;
-//#define BOOK(s)		book[(s) - 1U]
-//#define BIDS		BOOK(SIDE_BID)
-//#define ASKS		BOOK(SIDE_ASK)
 
 /* per-run variables */
 static const char *prfx;
@@ -156,7 +153,7 @@ rdq(const char *line, size_t llen)
 		/* map 1, 2, 3 to LVL_{1,2,3}
 		 * everything else goes to LVL_0 */
 		f ^= '0';
-		q.f = /*(flav_t)*/(f & -(f < 4U));
+		q.f = (typeof(q.f))(f & -(f < 4U));
 	}
 
 	/* rewind manually */
@@ -546,6 +543,23 @@ Error: cannot read consolidated quantity");
 			if (NOT_A_QUO_P(q = rdq(line, nrd))) {
 				/* invalid quote line */
 				continue;
+			}
+			/* we have to unwind second levels manually
+			 * because we need to print the interim steps */
+			if (UNLIKELY(q.f == LVL_1 &&
+				     (prq == prq2 || prq == prq3))) {
+				book_iter_t i = book_iter(book, q.s);
+				while (book_iter_next(&i) &&
+				       (q.s == SIDE_BID && i.p > q.p ||
+					q.s == SIDE_ASK && i.p < q.p)) {
+					quo_t r = {
+						q.s, LVL_2,
+						.p = i.p,
+						.q = 0.dd
+					};
+					r = book_add(book, r);
+					prq(r);
+				}
 			}
 			/* add to book */
 			q = book_add(book, q);
