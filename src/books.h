@@ -37,6 +37,7 @@
 #if !defined INCLUDED_books_h_
 #define INCLUDED_books_h_
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef _Decimal32 px_t;
 typedef _Decimal64 qx_t;
@@ -85,6 +86,16 @@ typedef struct {
 	void *quos[2U];
 } book_t;
 
+typedef struct {
+	void *b;
+	size_t i;
+	px_t p;
+	qx_t q;
+} book_iter_t;
+
+#define BIDX(x)		((x) - 1U)
+#define BOOK(x)		quos[BIDX(x)]
+
 
 extern book_t make_book(void);
 extern book_t free_book(book_t);
@@ -114,5 +125,14 @@ extern quo_t book_ctop(book_t, side_t, qx_t Q);
  * the number of levels filled.  Level i equals or exceeds i*Q in quantity. */
 extern size_t
 book_ctops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t Q, size_t n);
+
+extern bool book_iter_next(book_iter_t*);
+
+
+static inline book_iter_t
+book_iter(book_t b, side_t s)
+{
+	return (book_iter_t){b.BOOK(s)};
+}
 
 #endif	/* INCLUDED_books_h_ */

@@ -41,16 +41,14 @@
 #include "btree.h"
 #include "nifty.h"
 
-#define BOOK(x)		quos[(x) - 1U]
-
 
 book_t
 make_book(void)
 {
 	book_t r = {
 		.quos = {
-			[0U] = make_btree(true),
-			[1U] = make_btree(false),
+			[BIDX(SIDE_ASK)] = make_btree(false),
+			[BIDX(SIDE_BID)] = make_btree(true),
 		}
 	};
 	return r;
@@ -187,6 +185,13 @@ only_p:
 		p[j] = (px_t)(c / C);
 	}
 	return j;
+}
+
+
+bool
+book_iter_next(book_iter_t *iter)
+{
+	return btree_iter_next((void*)iter);
 }
 
 /* books.c ends here */
