@@ -83,6 +83,8 @@ typedef struct {
 #define NOT_A_XQUO	((xquo_t){NOT_A_QUO})
 #define NOT_A_XQUO_P(x)	(NOT_A_QUO_P((x).q))
 
+#define HX_CATCHALL	((hx_t)-1ULL)
+
 /* output mode */
 static void(*prq)(xbook_t*, quo_t);
 static unsigned int unxp;
@@ -134,11 +136,6 @@ free_xbook(xbook_t xb)
 }
 
 
-static hx_t *conx;
-static xbook_t *book;
-static size_t nbook;
-static size_t zbook;
-
 /* per-run variables */
 static const char *prfx;
 static size_t prfz;
@@ -493,6 +490,11 @@ main(int argc, char *argv[])
 {
 	static yuck_t argi[1U];
 	int rc = EXIT_SUCCESS;
+	static hx_t *conx;
+	static xbook_t *book;
+	static size_t nbook;
+	static size_t zbook;
+	size_t nctch = 0U;
 
 	if (yuck_parse(argi, argc, argv) < 0) {
 		rc = EXIT_FAILURE;
@@ -540,14 +542,31 @@ Error: cannot read consolidated quantity");
 
 	if ((nbook = argi->instr_nargs)) {
 		const char *const *cont = argi->instr_args;
+		size_t j = 0U;
 
 		/* initialise hash array and books */
 		conx = malloc(nbook * sizeof(*conx));
 		book = malloc(nbook * sizeof(*book));
 
 		for (size_t i = 0U; i < nbook; i++) {
-			conx[i] = hash(cont[i], strlen(cont[i]));
-			book[i] = make_xbook();
+			const size_t conz = strlen(cont[i]);
+
+			if (UNLIKELY(conz == 0U ||
+				     conz == 1U && *cont[i] == '*')) {
+				/* catch-all hash */
+				continue;
+			}
+			conx[j] = hash(cont[i], strlen(cont[i]));
+			book[j] = make_xbook();
+			j++;
+		}
+		if (j < nbook) {
+			/* oh, there's been catch-alls,
+			 * shrink NBOOK and initialise last cell */
+			nbook = j;
+			conx[nbook] = HX_CATCHALL;
+			book[nbook] = make_xbook();
+			nctch = 1U;
 		}
 	} else {
 		/* allocate some 8U books */
@@ -572,11 +591,13 @@ Error: cannot read consolidated quantity");
 			/* check if we've got him in our books */
 			for (k = 0U; k < nbook; k++) {
 				if (conx[k] == q.x) {
-					break;
+					goto unwnd;
 				}
 			}
-			if (k >= nbook && !zbook) {
-				/* not for us */
+			if (nctch) {
+				goto unwnd;
+			} else if (!zbook) {
+				/* ok, it's not for us */
 				continue;
 			} else if (UNLIKELY(nbook >= zbook)) {
 				/* resize */
@@ -586,6 +607,7 @@ Error: cannot read consolidated quantity");
 			}
 			/* initialise the book */
 			conx[nbook] = q.x, book[nbook] = make_xbook(), nbook++;
+		unwnd:
 			/* we have to unwind second levels manually
 			 * because we need to print the interim steps */
 			if (UNLIKELY(q.q.f == LVL_1 &&
@@ -615,8 +637,8 @@ Error: cannot read consolidated quantity");
 		free(line);
 	}
 
-	if (nbook) {
-		for (size_t i = 0U; i < nbook; i++) {
+	if (nbook + nctch) {
+		for (size_t i = 0U; i < nbook + nctch; i++) {
 			book[i] = free_xbook(book[i]);
 		}
 		free(conx);
