@@ -134,8 +134,6 @@ free_xbook(xbook_t xb)
 }
 
 
-static const char *const *cont;
-static size_t *conz;
 static hx_t *conx;
 static xbook_t *book;
 static size_t nbook;
@@ -541,16 +539,21 @@ Error: cannot read consolidated quantity");
 	}
 
 	if ((nbook = argi->instr_nargs)) {
-		cont = argi->instr_args;
-		conz = malloc(nbook * sizeof(*conz));
+		const char *const *cont = argi->instr_args;
+
+		/* initialise hash array and books */
 		conx = malloc(nbook * sizeof(*conx));
 		book = malloc(nbook * sizeof(*book));
 
 		for (size_t i = 0U; i < nbook; i++) {
-			conz[i] = strlen(cont[i]);
-			conx[i] = hash(cont[i], conz[i]);
+			conx[i] = hash(cont[i], strlen(cont[i]));
 			book[i] = make_xbook();
 		}
+	} else {
+		/* allocate some 8U books */
+		zbook = 8U;
+		conx = malloc(zbook * sizeof(*conx));
+		book = malloc(zbook * sizeof(*book));
 	}
 
 	/* initialise the processor */
@@ -572,10 +575,17 @@ Error: cannot read consolidated quantity");
 					break;
 				}
 			}
-			if (k >= nbook) {
+			if (k >= nbook && !zbook) {
 				/* not for us */
 				continue;
+			} else if (UNLIKELY(nbook >= zbook)) {
+				/* resize */
+				zbook *= 2U;
+				conx = realloc(conx, zbook * sizeof(*conx));
+				book = realloc(book, zbook * sizeof(*book));
 			}
+			/* initialise the book */
+			conx[nbook] = q.x, book[nbook] = make_xbook(), nbook++;
 			/* we have to unwind second levels manually
 			 * because we need to print the interim steps */
 			if (UNLIKELY(q.q.f == LVL_1 &&
@@ -609,8 +619,8 @@ Error: cannot read consolidated quantity");
 		for (size_t i = 0U; i < nbook; i++) {
 			book[i] = free_xbook(book[i]);
 		}
-		free(conz);
 		free(conx);
+		free(book);
 	}
 
 out:
