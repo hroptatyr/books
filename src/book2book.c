@@ -57,9 +57,38 @@
 #define strtoqx		strtod64
 #define qxtostr		d64tostr
 
+typedef struct {
+	book_t book;
+	union {
+		struct {
+			px_t *bids;
+			px_t *asks;
+			qx_t *bszs;
+			qx_t *aszs;
+		};
+		struct {
+			px_t bid;
+			px_t ask;
+			qx_t bsz;
+			qx_t asz;
+		};
+	};
+} xbook_t;
+
+typedef struct {
+	quo_t q;
+	hx_t x;
+} xquo_t;
+
+#define NOT_A_XQUO	((xquo_t){NOT_A_QUO})
+#define NOT_A_XQUO_P(x)	(NOT_A_QUO_P((x).q))
+
 /* output mode */
-static void(*prq)(quo_t);
+static void(*prq)(xbook_t*, quo_t);
 static unsigned int unxp;
+/* for N-books */
+static size_t ntop;
+static qx_t cqty;
 
 
 static __attribute__((format(printf, 1, 2))) void
@@ -78,82 +107,73 @@ serror(const char *fmt, ...)
 	return;
 }
 
-
-static const char *cont;
-static size_t conz;
-static hx_t conx;
+static xbook_t
+make_xbook(void)
+{
+	xbook_t r = {make_book()};
+	if (ntop > 1U) {
+		r.bids = calloc(ntop, sizeof(*r.bids));
+		r.asks = calloc(ntop, sizeof(*r.asks));
+		r.bszs = calloc(ntop, sizeof(*r.bszs));
+		r.aszs = calloc(ntop, sizeof(*r.aszs));
+	}
+	return r;
+}
 
-static book_t book;
+static xbook_t
+free_xbook(xbook_t xb)
+{
+	if (ntop > 1U) {
+		free(xb.bids);
+		free(xb.asks);
+		free(xb.bszs);
+		free(xb.aszs);
+	}
+	xb.book = free_book(xb.book);
+	return xb;
+}
+
+
+static const char *const *cont;
+static size_t *conz;
+static hx_t *conx;
+static xbook_t *book;
+static size_t nbook;
+static size_t zbook;
 
 /* per-run variables */
 static const char *prfx;
 static size_t prfz;
 
-/* for N-books */
-static size_t ntop;
-static qx_t cqty;
-static px_t *bids;
-static px_t *asks;
-static qx_t *bszs;
-static qx_t *aszs;
-
-static void
-init(void)
-{
-	book = make_book();
-
-	if (ntop > 1U) {
-		bids = calloc(ntop, sizeof(*bids));
-		asks = calloc(ntop, sizeof(*asks));
-		bszs = calloc(ntop, sizeof(*bszs));
-		aszs = calloc(ntop, sizeof(*aszs));
-	}
-	return;
-}
-
-static void
-fini(void)
-{
-	if (ntop > 1U) {
-		free(bids);
-		free(asks);
-		free(bszs);
-		free(aszs);
-	}
-
-	book = free_book(book);
-	return;
-}
-
-static quo_t
+static xquo_t
 rdq(const char *line, size_t llen)
 {
 /* process one line */
 	char *on;
-	quo_t q;
+	xquo_t q;
 
 	/* get qty */
 	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without quantity */
-		return NOT_A_QUO;
+		return NOT_A_XQUO;
 	}
 	llen = on - line;
-	q.q = strtoqx(on + 1U, NULL);
+	q.q.q = strtoqx(on + 1U, NULL);
 
 	/* get prc */
 	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without price */
-		return NOT_A_QUO;
+		return NOT_A_XQUO;
 	}
 	llen = on - line;
-	q.p = strtopx(on + 1U, NULL);
+	q.q.p = strtopx(on + 1U, NULL);
 
 	/* get flavour, should be just before ON */
 	with (unsigned char f = *(unsigned char*)--on) {
 		/* map 1, 2, 3 to LVL_{1,2,3}
 		 * everything else goes to LVL_0 */
 		f ^= '0';
-		q.f = (typeof(q.f))(f & -(f < 4U));
+		q.q.f = (typeof(q.q.f))(f & -(f < 4U));
 	}
 
 	/* rewind manually */
@@ -163,24 +183,19 @@ rdq(const char *line, size_t llen)
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
 		s ^= '@';
-		q.s = (side_t)(s & -(s <= 2U));
+		q.q.s = (side_t)(s & -(s <= 2U));
 
-		if (UNLIKELY(!q.s)) {
+		if (UNLIKELY(!q.q.s)) {
 			/* cannot put entry to either side, just ignore */
-			return NOT_A_QUO;
+			return NOT_A_XQUO;
 		}
 	}
 	llen = on - line;
 
 	/* see if we've got pairs */
-	if (conx) {
-		const char *boi =
-			memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
-		hx_t hx = hash(boi + 1U, on - 1U - (boi + 1U));
-
-		if (UNLIKELY(hx != conx)) {
-			return NOT_A_QUO;
-		}
+	with (const char *boi =
+	      memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U)) {
+		q.x = hash(boi + 1U, on - 1U - (boi + 1U));
 	}
 	/* let them know where the prefix ends */
 	prfx = line;
@@ -189,36 +204,37 @@ rdq(const char *line, size_t llen)
 }
 
 static void
-prq1(quo_t UNUSED(q))
+prq1(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to 1-books, aligned */
 	quo_t b, a;
 	do {
-		static quo_t oldb, olda;
 		char buf[256U];
 		size_t len = 0U;
 
-		b = book_top(book, SIDE_BID);
-		a = book_top(book, SIDE_ASK);
+		b = book_top(xb->book, SIDE_BID);
+		a = book_top(xb->book, SIDE_ASK);
 
-		if ((b.p == oldb.p && b.q == oldb.q &&
-		     a.p == olda.p && a.q == olda.q)) {
+		if ((b.p == xb->bid && b.q == xb->bsz &&
+		     a.p == xb->ask && a.q == xb->asz)) {
 			break;
 		}
 
 		/* uncross */
 		if (0) {
 			;
-		} else if (unxp && a.p <= b.p && a.p < olda.p) {
+		} else if (unxp && a.p <= b.p && a.p < xb->ask) {
 			/* remove bid */
-			book_add(book, (quo_t){SIDE_BID, LVL_2, b.p, 0.dd});
-		} else if (unxp && b.p >= a.p && b.p > oldb.p) {
+			book_add(xb->book, (quo_t){SIDE_BID, LVL_2, b.p, 0.dd});
+		} else if (unxp && b.p >= a.p && b.p > xb->bid) {
 			/* remove ask */
-			book_add(book, (quo_t){SIDE_ASK, LVL_2, a.p, 0.dd});
+			book_add(xb->book, (quo_t){SIDE_ASK, LVL_2, a.p, 0.dd});
 		} else {
 			/* yep, top level change */
-			oldb = b;
-			olda = a;
+			xb->bid = b.p;
+			xb->ask = a.p;
+			xb->bsz = b.q;
+			xb->asz = a.q;
 		}
 
 		buf[len++] = 'c';
@@ -240,7 +256,7 @@ prq1(quo_t UNUSED(q))
 }
 
 static void
-prq2(quo_t q)
+prq2(xbook_t *UNUSED(xb), quo_t q)
 {
 /* print 2-books */
 	char buf[256U];
@@ -260,7 +276,7 @@ prq2(quo_t q)
 }
 
 static void
-prq3(quo_t q)
+prq3(xbook_t *UNUSED(xb), quo_t q)
 {
 /* convert to 3-books */
 	char buf[256U];
@@ -280,7 +296,7 @@ prq3(quo_t q)
 }
 
 static void
-prqn(quo_t UNUSED(q))
+prqn(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -294,13 +310,13 @@ prqn(quo_t UNUSED(q))
 	memset(A, 0, sizeof(A));
 
 	do {
-		size_t bn = book_tops(b, B, book, SIDE_BID, ntop);
-		size_t an = book_tops(a, A, book, SIDE_ASK, ntop);
+		size_t bn = book_tops(b, B, xb->book, SIDE_BID, ntop);
+		size_t an = book_tops(a, A, xb->book, SIDE_ASK, ntop);
 
-		if (!memcmp(B, bszs, sizeof(B)) &&
-		    !memcmp(A, aszs, sizeof(A)) &&
-		    !memcmp(b, bids, sizeof(b)) &&
-		    !memcmp(a, asks, sizeof(a))) {
+		if (!memcmp(B, xb->bszs, sizeof(B)) &&
+		    !memcmp(A, xb->aszs, sizeof(A)) &&
+		    !memcmp(b, xb->bids, sizeof(b)) &&
+		    !memcmp(a, xb->asks, sizeof(a))) {
 			/* nothing's changed, sod off */
 			return;
 		}
@@ -344,28 +360,27 @@ prqn(quo_t UNUSED(q))
 		}
 	} while (unxp && a[0U] <= b[0U]);
 
-	memcpy(bids, b, sizeof(b));
-	memcpy(asks, a, sizeof(a));
-	memcpy(bszs, B, sizeof(B));
-	memcpy(aszs, A, sizeof(A));
+	memcpy(xb->bids, b, sizeof(b));
+	memcpy(xb->asks, a, sizeof(a));
+	memcpy(xb->bszs, B, sizeof(B));
+	memcpy(xb->aszs, A, sizeof(A));
 	return;
 }
 
 static void
-prqc(quo_t UNUSED(q))
+prqc(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to consolidated 1-books, aligned */
 	quo_t bc, ac;
 
 	do {
-		static quo_t oldb, olda;
 		char buf[256U];
 		size_t len = 0U;
 
-		bc = book_ctop(book, SIDE_BID, cqty);
-		ac = book_ctop(book, SIDE_ASK, cqty);
+		bc = book_ctop(xb->book, SIDE_BID, cqty);
+		ac = book_ctop(xb->book, SIDE_ASK, cqty);
 
-		if (bc.p == oldb.p && ac.p == olda.p) {
+		if (bc.p == xb->bid && ac.p == xb->ask) {
 			break;
 		}
 
@@ -375,7 +390,7 @@ prqc(quo_t UNUSED(q))
 		}
 
 		/* assign to state vars already */
-		oldb = bc, olda = ac;
+		xb->bid = bc.p, xb->ask = ac.p;
 
 		buf[len++] = 'C';
 		len += qxtostr(buf + len, sizeof(buf) - len, cqty);
@@ -404,7 +419,7 @@ prqc(quo_t UNUSED(q))
 }
 
 static void
-prqCn(quo_t UNUSED(q))
+prqCn(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -418,11 +433,11 @@ prqCn(quo_t UNUSED(q))
 	memset(A, 0, sizeof(A));
 
 	do {
-		size_t bn = book_ctops(b, B, book, SIDE_BID, cqty, ntop);
-		size_t an = book_ctops(a, A, book, SIDE_ASK, cqty, ntop);
+		size_t bn = book_ctops(b, B, xb->book, SIDE_BID, cqty, ntop);
+		size_t an = book_ctops(a, A, xb->book, SIDE_ASK, cqty, ntop);
 
-		if (!memcmp(b, bids, sizeof(b)) &&
-		    !memcmp(a, asks, sizeof(a))) {
+		if (!memcmp(b, xb->bids, sizeof(b)) &&
+		    !memcmp(a, xb->asks, sizeof(a))) {
 			/* nothing's changed, sod off */
 			return;
 		}
@@ -467,8 +482,8 @@ prqCn(quo_t UNUSED(q))
 		}
 	} while (unxp && a[0U] <= b[0U]);
 
-	memcpy(bids, b, sizeof(b));
-	memcpy(asks, a, sizeof(a));
+	memcpy(xb->bids, b, sizeof(b));
+	memcpy(xb->asks, a, sizeof(a));
 	return;
 }
 
@@ -525,55 +540,78 @@ Error: cannot read consolidated quantity");
 		}
 	}
 
-	if (argi->instr_arg) {
-		cont = argi->instr_arg;
-		conz = strlen(cont);
-		conx = hash(cont, conz);
+	if ((nbook = argi->instr_nargs)) {
+		cont = argi->instr_args;
+		conz = malloc(nbook * sizeof(*conz));
+		conx = malloc(nbook * sizeof(*conx));
+		book = malloc(nbook * sizeof(*book));
+
+		for (size_t i = 0U; i < nbook; i++) {
+			conz[i] = strlen(cont[i]);
+			conx[i] = hash(cont[i], conz[i]);
+			book[i] = make_xbook();
+		}
 	}
 
 	/* initialise the processor */
-	init();
 	{
 		char *line = NULL;
 		size_t llen = 0UL;
 
 		for (ssize_t nrd; (nrd = getline(&line, &llen, stdin)) > 0;) {
-			quo_t q;
+			xquo_t q;
+			size_t k;
 
-			if (NOT_A_QUO_P(q = rdq(line, nrd))) {
+			if (NOT_A_XQUO_P(q = rdq(line, nrd))) {
 				/* invalid quote line */
+				continue;
+			}
+			/* check if we've got him in our books */
+			for (k = 0U; k < nbook; k++) {
+				if (conx[k] == q.x) {
+					break;
+				}
+			}
+			if (k >= nbook) {
+				/* not for us */
 				continue;
 			}
 			/* we have to unwind second levels manually
 			 * because we need to print the interim steps */
-			if (UNLIKELY(q.f == LVL_1 &&
+			if (UNLIKELY(q.q.f == LVL_1 &&
 				     (prq == prq2 || prq == prq3))) {
-				book_iter_t i = book_iter(book, q.s);
+				book_iter_t i = book_iter(book[k].book, q.q.s);
 				while (book_iter_next(&i) &&
-				       (q.s == SIDE_BID && i.p > q.p ||
-					q.s == SIDE_ASK && i.p < q.p)) {
+				       (q.q.s == SIDE_BID && i.p > q.q.p ||
+					q.q.s == SIDE_ASK && i.p < q.q.p)) {
 					quo_t r = {
-						q.s, LVL_2,
+						q.q.s, LVL_2,
 						.p = i.p,
 						.q = 0.dd
 					};
-					r = book_add(book, r);
-					prq(r);
+					r = book_add(book[k].book, r);
+					prq(book + k, r);
 				}
 			}
 			/* add to book */
-			q = book_add(book, q);
-			if (LIKELY(q.o == q.q)) {
+			q.q = book_add(book[k].book, q.q);
+			if (LIKELY(q.q.o == q.q.q)) {
 				/* nothing changed */
 				continue;
 			}
 			/* printx */
-			prq(q);
+			prq(book + k, q.q);
 		}
 		free(line);
 	}
-	/* finalise the processor */
-	fini();
+
+	if (nbook) {
+		for (size_t i = 0U; i < nbook; i++) {
+			book[i] = free_xbook(book[i]);
+		}
+		free(conz);
+		free(conx);
+	}
 
 out:
 	yuck_free(argi);
