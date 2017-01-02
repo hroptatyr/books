@@ -31,11 +31,11 @@ TESTS_ENVIRONMENT = root=$(top_srcdir)
 
 
 check_PROGRAMS += btree_01
-TESTS += btree_01
+TESTS += btree_01.clit
 btree_01_LDADD = $(books_LIBS)
 
 check_PROGRAMS += btree_02
-TESTS += btree_02
+TESTS += btree_02.clit
 btree_02_LDADD = $(books_LIBS)
 
 ## Makefile.am ends here
