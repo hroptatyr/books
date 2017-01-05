@@ -1,0 +1,30 @@
+Usage: booksnap [< FILE]
+
+Produce regular snapshots of orderbooks.
+Books should look like
+
+T...	INSTR	SIDE+FLAVOUR	PRICE	QUANTITY
+
+where T... are unix timestamps, INSTR is an instrument identifier,
+SIDE is BID or ASK, flavour see beloe.  PRICE is the price level,
+and QUANTITY the associated quantity or quantity change.
+
+Books come in 3 flavours: 1, 2 and 3:
+A 1-book at any time represents the top inner quote, so a BID1 line
+would indicate the current best bid and its quantity.
+A 2-book at any time represents all quotes with their aggregate
+quantity, so an ASK2 line indicates a change in quantity for the
+given price level.
+A 3-book disaggregates the 2-book and indicates increments (or
+decrements if QUANTITY is negative) to a price level.
+
+  -i, --interval=S      Shoot snaps every S seconds, default 1.
+                        Can be suffixed with 'ms', 's', 'm', 'h' to
+                        denote milliseconds, seconds, minutes, hours
+                        respectively.
+  -o, --offset=S        Offset snaps by S seconds, can also be
+                        suffixed with 'ms', 's', 'm', 'h' to denote
+                        milliseconds, seconds, minutes, or hours.
+                        Default: 0
+  -S, --stamps=FILE     Shoot snaps at times taken from FILE.
+  -I, --instr=INSTR...  Filter for occurrences of INSTR.
