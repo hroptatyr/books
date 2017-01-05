@@ -77,7 +77,8 @@ typedef struct {
 
 typedef struct {
 	quo_t q;
-	hx_t x;
+	const char *ins;
+	size_t inz;
 } xquo_t;
 
 #define NOT_A_XQUO	((xquo_t){NOT_A_QUO})
@@ -188,10 +189,9 @@ rdq(const char *line, size_t llen)
 	llen = on - line;
 
 	/* see if we've got pairs */
-	with (const char *boi =
-	      memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U)) {
-		q.x = hash(boi + 1U, on - 1U - (boi + 1U));
-	}
+	q.ins = memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
+	q.ins++;
+	q.inz = on - 1U - q.ins;
 	/* let them know where the prefix ends */
 	prfx = line;
 	prfz = llen;
@@ -583,15 +583,19 @@ Error: cannot read consolidated quantity");
 		for (ssize_t nrd; (nrd = getline(&line, &llen, stdin)) > 0;) {
 			xquo_t q;
 			size_t k;
+			hx_t hx;
 
 			if (NOT_A_XQUO_P(q = rdq(line, nrd))) {
 				/* invalid quote line */
 				continue;
 			}
 			/* check if we've got him in our books */
-			for (k = 0U; k < nbook; k++) {
-				if (conx[k] == q.x) {
-					goto unwnd;
+			if (nbook || zbook) {
+				hx = hash(q.ins, q.inz);
+				for (k = 0U; k < nbook; k++) {
+					if (conx[k] == hx) {
+						goto unwnd;
+					}
 				}
 			}
 			if (nctch) {
@@ -606,7 +610,7 @@ Error: cannot read consolidated quantity");
 				book = realloc(book, zbook * sizeof(*book));
 			}
 			/* initialise the book */
-			conx[nbook] = q.x, book[nbook] = make_xbook(), nbook++;
+			conx[nbook] = hx, book[nbook] = make_xbook(), nbook++;
 		unwnd:
 			/* we have to unwind second levels manually
 			 * because we need to print the interim steps */
