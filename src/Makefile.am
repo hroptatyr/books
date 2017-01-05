@@ -46,6 +46,19 @@ book2book_LDADD += libdfp.a
 book2book_LDADD += libbooks.a
 BUILT_SOURCES += book2book.yucc
 
+bin_PROGRAMS += booksnap
+booksnap_SOURCES = booksnap.c booksnap.yuck
+booksnap_SOURCES += hash.c hash.h
+booksnap_SOURCES += version.c version.h
+booksnap_CPPFLAGS = $(AM_CPPFLAGS)
+booksnap_CPPFLAGS += $(dfp754_CFLAGS)
+booksnap_LDFLAGS = $(AM_LDFLAGS)
+booksnap_LDFLAGS += $(dfp754_LIBS)
+booksnap_LDADD =
+booksnap_LDADD += libdfp.a
+booksnap_LDADD += libbooks.a
+BUILT_SOURCES += booksnap.yucc
+
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
