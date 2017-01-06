@@ -332,10 +332,218 @@ snap2(book_t bk, const char *cont)
 	return;
 }
 
+static struct {
+	size_t bn;
+	size_t an;
+	size_t bz;
+	size_t az;
+	px_t *b;
+	px_t *a;
+	qx_t *B;
+	qx_t *A;
+} *snap3_aux;
+static size_t zbk;
+static size_t ibk;
+
+static void
+init_snap3(size_t nbook)
+{
+	/* round up to 8 multiple */
+	zbk = (nbook | 0x7) + 1U;
+	snap3_aux = calloc(zbk, sizeof(*snap3_aux));
+	return;
+}
+
+static void
+free_snap3(void)
+{
+	for (size_t i = 0U; i < zbk; i++) {
+		if (LIKELY(snap3_aux[i].b != NULL)) {
+			free(snap3_aux[i].b);
+		}
+		if (LIKELY(snap3_aux[i].a != NULL)) {
+			free(snap3_aux[i].a);
+		}
+		if (LIKELY(snap3_aux[i].B != NULL)) {
+			free(snap3_aux[i].B);
+		}
+		if (LIKELY(snap3_aux[i].A != NULL)) {
+			free(snap3_aux[i].A);
+		}
+	}
+	free(snap3_aux);
+	snap3_aux = NULL;
+	zbk = 0UL;
+	return;
+}
+
+static void
+snap3_book(book_t bk)
+{
+	size_t bi;
+	size_t bz;
+
+	/* bids */
+	bi = 0U;
+	bz = snap3_aux[ibk].bz;
+	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)}; book_iter_next(&i); bi++) {
+		if (UNLIKELY(bi >= bz)) {
+			bz = (bz *= 2U) ?: 32U;
+			snap3_aux[ibk].b =
+				realloc(snap3_aux[ibk].b, bz * sizeof(px_t));
+			snap3_aux[ibk].B =
+				realloc(snap3_aux[ibk].B, bz * sizeof(qx_t));
+			snap3_aux[ibk].bz = bz;
+		}
+		snap3_aux[ibk].b[bi] = i.p;
+		snap3_aux[ibk].B[bi] = i.q;
+	}
+	snap3_aux[ibk].bn = bi;
+
+	/* asks */
+	bi = 0U;
+	bz = snap3_aux[ibk].az;
+	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)}; book_iter_next(&i); bi++) {
+		if (UNLIKELY(bi >= bz)) {
+			bz = (bz *= 2U) ?: 32U;
+			snap3_aux[ibk].a =
+				realloc(snap3_aux[ibk].a, bz * sizeof(px_t));
+			snap3_aux[ibk].A =
+				realloc(snap3_aux[ibk].A, bz * sizeof(qx_t));
+			snap3_aux[ibk].az = bz;
+		}
+		snap3_aux[ibk].a[bi] = i.p;
+		snap3_aux[ibk].A[bi] = i.q;
+	}
+	snap3_aux[ibk].an = bi;
+	return;
+}
+
 static void
 snap3(book_t bk, const char *cont)
 {
+	char buf[256U];
+	size_t len, prfz;
+	/* index into last book */
+	size_t bi, bn;
+	const px_t *pp;
+	const qx_t *qp;
 
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
+	if (UNLIKELY(ibk >= zbk)) {
+		/* resize */
+		const size_t olz = zbk;
+		while ((zbk *= 2U) < ibk);
+		snap3_aux = realloc(snap3_aux, zbk);
+		snap3_aux = calloc(zbk, sizeof(*snap3_aux));
+		memset(snap3_aux + olz, 0, (zbk - olz) * sizeof(*snap3_aux));
+	}
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'B';
+	buf[len++] = '2';
+	buf[len++] = '\t';
+	prfz = len;
+
+	/* bids first, descending order */
+	pp = snap3_aux[ibk].b;
+	qp = snap3_aux[ibk].B;
+	bn = snap3_aux[ibk].bn;
+	bi = 0U;
+	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)};
+	     book_iter_next(&i); len = prfz) {
+		px_t p;
+		qx_t q;
+
+	again_b:
+		if (bi >= bn) {
+			goto nopp_b;
+		} else if (i.p == pp[bi]) {
+			p = i.p;
+			q = i.q - qp[bi];
+		} else if (i.p > pp[bi]) {
+		nopp_b:
+			p = i.p;
+			q = i.q;
+		} else if (i.p < pp[bi]) {
+			p = pp[bi];
+			q = -qp[bi];
+		} else {
+			continue;
+		}
+
+		len += pxtostr(buf + len, sizeof(buf) - len, p);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, q);
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+
+		/* see where to go next */
+		if (bi < bn && i.p <= pp[bi]) {
+			bi++;
+			if (i.p < pp[bi]) {
+				len = prfz;
+				goto again_b;
+			}
+		}
+	}
+
+	/* go to asks now */
+	buf[prfz - 3U] = 'A';
+	pp = snap3_aux[ibk].a;
+	qp = snap3_aux[ibk].A;
+	bn = snap3_aux[ibk].an;
+	bi = 0U;
+	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)};
+	     book_iter_next(&i); len = prfz) {
+		px_t p;
+		qx_t q;
+
+	again_a:
+		if (bi >= bn) {
+			goto nopp_a;
+		} else if (i.p == pp[bi]) {
+			p = i.p;
+			q = i.q - qp[bi];
+		} else if (i.p < pp[bi]) {
+		nopp_a:
+			p = i.p;
+			q = i.q;
+		} else if (i.p > pp[bi]) {
+			p = pp[bi];
+			q = -qp[bi];
+		} else {
+			continue;
+		}
+
+		len += pxtostr(buf + len, sizeof(buf) - len, p);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, q);
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+
+		/* see where to go next */
+		if (bi < bn && i.p >= pp[bi]) {
+			bi++;
+			if (i.p > pp[bi]) {
+				len = prfz;
+				goto again_a;
+			}
+		}
+	}
+
+	/* make a photo-copy of that book */
+	snap3_book(bk);
 	return;
 }
 
@@ -713,6 +921,10 @@ Error: cannot read consolidated quantity");
 		book = malloc(zbook * sizeof(*book));
 	}
 
+	if (snap == snap3) {
+		init_snap3(nbook + nctch);
+	}
+
 	{
 		char *line = NULL;
 		size_t llen = 0UL;
@@ -761,8 +973,8 @@ Error: cannot read consolidated quantity");
 			/* do we need to shoot a snap? */
 			for (; UNLIKELY(q.t > metr); metr = next(q.t)) {
 				/* materialise snapshot */
-				for (size_t i = 0U; i < nbook + nctch; i++) {
-					snap(book[i], cont[i]);
+				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+					snap(book[ibk], cont[ibk]);
 				}
 			}
 
@@ -771,9 +983,13 @@ Error: cannot read consolidated quantity");
 		}
 		free(line);
 		/* final snapshot */
-		for (size_t i = 0U; i < nbook + nctch; i++) {
-			snap(book[i], cont[i]);
+		for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+			snap(book[ibk], cont[ibk]);
 		}
+	}
+
+	if (snap == snap3) {
+		free_snap3();
 	}
 
 	if (nbook + nctch) {
