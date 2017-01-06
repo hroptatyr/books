@@ -81,6 +81,13 @@ static tv_t intv = 1U * MSECS;
 static tv_t offs = 0U * MSECS;
 static FILE *sfil;
 
+/* output mode */
+static void(*snap)(book_t, const char*);
+static unsigned int UNUSED(unxp);
+/* for N-books */
+static size_t ntop;
+static qx_t cqty;
+
 
 static __attribute__((format(printf, 1, 2))) void
 serror(const char *fmt, ...)
@@ -242,8 +249,46 @@ rdq(const char *line, size_t llen)
 	return q;
 }
 
+
+/* snappers */
 static void
-snap(book_t bk, const char *cont)
+snap1(book_t bk, const char *cont)
+{
+	char buf[256U];
+	size_t len;
+	quo_t b, a;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
+	b = book_top(bk, SIDE_BID);
+	a = book_top(bk, SIDE_ASK);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'c';
+	buf[len++] = '1';
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, b.q);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, a.q);
+	buf[len++] = '\n';
+	/* and out */
+	fwrite(buf, 1, len, stdout);
+	return;
+}
+
+static void
+snap2(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len, prfz;
@@ -280,6 +325,176 @@ snap(book_t bk, const char *cont)
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
 		len += qxtostr(buf + len, sizeof(buf) - len, i.q);
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+	}
+	return;
+}
+
+static void
+snap3(book_t bk, const char *cont)
+{
+
+	return;
+}
+
+static void
+snapn(book_t bk, const char *cont)
+{
+	px_t b[ntop];
+	qx_t B[ntop];
+	px_t a[ntop];
+	qx_t A[ntop];
+	size_t bn, an;
+	char buf[256U];
+	size_t len, prfz;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
+	memset(b, -1, sizeof(b));
+	memset(B, -1, sizeof(B));
+	memset(a, -1, sizeof(a));
+	memset(A, -1, sizeof(A));
+
+	bn = book_tops(b, B, bk, SIDE_BID, ntop);
+	an = book_tops(a, A, bk, SIDE_ASK, ntop);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'c';
+	prfz = len;
+
+	for (size_t i = 0U,
+		     n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	     i < n; i++, len = prfz) {
+		len += snprintf(buf + len, sizeof(buf) - len, "%zu", i + 1U);
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, b[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, a[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, B[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, A[i]);
+		}
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+	}
+	return;
+}
+
+static void
+snapc(book_t bk, const char *cont)
+{
+	char buf[256U];
+	size_t len;
+	quo_t b, a;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
+	b = book_ctop(bk, SIDE_BID, cqty);
+	a = book_ctop(bk, SIDE_ASK, cqty);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'C';
+	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = '\t';
+	if (b.q >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	}
+	buf[len++] = '\t';
+	if (a.q >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	}
+	buf[len++] = '\t';
+	if (b.q >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
+	}
+	buf[len++] = '\t';
+	if (b.q >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
+	}
+	buf[len++] = '\n';
+	/* and out */
+	fwrite(buf, 1, len, stdout);
+	return;
+}
+
+static void
+snapCn(book_t bk, const char *cont)
+{
+	px_t b[ntop];
+	qx_t B[ntop];
+	px_t a[ntop];
+	qx_t A[ntop];
+	size_t bn, an;
+	char buf[256U];
+	size_t len, prfz;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
+	memset(b, -1, sizeof(b));
+	memset(B, -1, sizeof(B));
+	memset(a, -1, sizeof(a));
+	memset(A, -1, sizeof(A));
+
+	bn = book_ctops(b, B, bk, SIDE_BID, cqty, ntop);
+	an = book_ctops(a, A, bk, SIDE_ASK, cqty, ntop);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'C';
+	prfz = len;
+
+	qx_t eoc = cqty;
+	for (size_t i = 0U,
+		     n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	     i < n; i++, eoc += cqty, len = prfz) {
+		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, b[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, a[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, B[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, A[i]);
+		}
 		buf[len++] = '\n';
 		/* and out */
 		fwrite(buf, 1, len, stdout);
@@ -419,6 +634,45 @@ Error: cannot open stamps file");
 
 	/* use a next routine du jour */
 	next = !argi->stamps_arg ? _next_intv : _next_stmp;
+
+	snap = snap2;
+	if (argi->dash1_flag) {
+		snap = snap1;
+	}
+	if (argi->dash3_flag) {
+		snap = snap3;
+	}
+	if (argi->dash2_flag) {
+		snap = snap2;
+	}
+
+	if (argi->dashN_arg) {
+		if (!(ntop = strtoul(argi->dashN_arg, NULL, 10))) {
+			errno = 0, serror("\
+Error: cannot read number of levels for top-N book");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		if (ntop > 1U) {
+			snap = snapn;
+		} else {
+			snap = snap1;
+		}
+	}
+
+	if (argi->dashC_arg) {
+		if ((cqty = strtoqx(argi->dashC_arg, NULL)) <= 0.dd) {
+			errno = 0, serror("\
+Error: cannot read consolidated quantity");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		if (ntop > 1U) {
+			snap = snapCn;
+		} else {
+			snap = snapc;
+		}
+	}
 
 	if ((nbook = argi->instr_nargs)) {
 		size_t j = 0U;
