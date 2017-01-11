@@ -25,3 +25,4 @@ decrements if QUANTITY is negative) to a price level.
   -3                        Output level-3 book.
   -N NUMBER                 Output NUMBER price levels.
   -C QUANTITY               Output top-level consolidated book.
+  -u, --uncross             Uncross books.

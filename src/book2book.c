@@ -512,6 +512,8 @@ main(int argc, char *argv[])
 		prq = prq2;
 	}
 
+	unxp = argi->uncross_flag;
+
 	if (argi->dashN_arg) {
 		if (!(ntop = strtoul(argi->dashN_arg, NULL, 10))) {
 			errno = 0, serror("\
