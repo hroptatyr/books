@@ -88,7 +88,6 @@ typedef struct {
 
 /* output mode */
 static void(*prq)(xbook_t*, quo_t);
-static unsigned int unxp;
 /* for N-books */
 static size_t ntop;
 static qx_t cqty;
@@ -203,50 +202,36 @@ prq1(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to 1-books, aligned */
 	quo_t b, a;
-	do {
-		char buf[256U];
-		size_t len = 0U;
+	char buf[256U];
+	size_t len = 0U;
 
-		b = book_top(xb->book, SIDE_BID);
-		a = book_top(xb->book, SIDE_ASK);
+	b = book_top(xb->book, SIDE_BID);
+	a = book_top(xb->book, SIDE_ASK);
 
-		if ((b.p == xb->bid && b.q == xb->bsz &&
-		     a.p == xb->ask && a.q == xb->asz)) {
-			break;
-		}
+	if ((b.p == xb->bid && b.q == xb->bsz &&
+	     a.p == xb->ask && a.q == xb->asz)) {
+		return;
+	}
+	/* yep, top level change */
+	xb->bid = b.p;
+	xb->ask = a.p;
+	xb->bsz = b.q;
+	xb->asz = a.q;
 
-		/* uncross */
-		if (0) {
-			;
-		} else if (unxp && a.p <= b.p && a.p < xb->ask) {
-			/* remove bid */
-			book_add(xb->book, (quo_t){SIDE_BID, LVL_2, b.p, 0.dd});
-		} else if (unxp && b.p >= a.p && b.p > xb->bid) {
-			/* remove ask */
-			book_add(xb->book, (quo_t){SIDE_ASK, LVL_2, a.p, 0.dd});
-		} else {
-			/* yep, top level change */
-			xb->bid = b.p;
-			xb->ask = a.p;
-			xb->bsz = b.q;
-			xb->asz = a.q;
-		}
+	buf[len++] = 'c';
+	buf[len++] = '1';
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	buf[len++] = '\t';
+	len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, b.q);
+	buf[len++] = '\t';
+	len += qxtostr(buf + len, sizeof(buf) - len, a.q);
+	buf[len++] = '\n';
 
-		buf[len++] = 'c';
-		buf[len++] = '1';
-		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
-		buf[len++] = '\t';
-		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
-		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
-		buf[len++] = '\t';
-		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
-		buf[len++] = '\n';
-
-		fwrite(prfx, 1, prfz, stdout);
-		fwrite(buf, 1, len, stdout);
-	} while (unxp && a.p <= b.p);
+	fwrite(prfx, 1, prfz, stdout);
+	fwrite(buf, 1, len, stdout);
 	return;
 }
 
@@ -304,57 +289,51 @@ prqn(xbook_t *xb, quo_t UNUSED(q))
 	memset(a, 0, sizeof(a));
 	memset(A, 0, sizeof(A));
 
-	do {
-		size_t bn = book_tops(b, B, xb->book, SIDE_BID, ntop);
-		size_t an = book_tops(a, A, xb->book, SIDE_ASK, ntop);
+	size_t bn = book_tops(b, B, xb->book, SIDE_BID, ntop);
+	size_t an = book_tops(a, A, xb->book, SIDE_ASK, ntop);
 
-		if (!memcmp(B, xb->bszs, sizeof(B)) &&
-		    !memcmp(A, xb->aszs, sizeof(A)) &&
-		    !memcmp(b, xb->bids, sizeof(b)) &&
-		    !memcmp(a, xb->asks, sizeof(a))) {
-			/* nothing's changed, sod off */
-			return;
+	if (!memcmp(B, xb->bszs, sizeof(B)) &&
+	    !memcmp(A, xb->aszs, sizeof(A)) &&
+	    !memcmp(b, xb->bids, sizeof(b)) &&
+	    !memcmp(a, xb->asks, sizeof(a))) {
+		/* nothing's changed, sod off */
+		return;
+	}
+
+	size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	for (size_t i = 0U; i < n; i++) {
+		char buf[256U];
+		size_t len = 0U;
+
+		len += snprintf(buf + len, sizeof(buf) - len,
+				"c%zu", i + 1U);
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, b[i]);
 		}
-
-		if (unxp) {
-			/* uncrossing code here */
-			;
+		buf[len++] = '\t';
+		if (i < an) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, a[i]);
 		}
-
-		size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
-		for (size_t i = 0U; i < n; i++) {
-			char buf[256U];
-			size_t len = 0U;
-
-			len += snprintf(buf + len, sizeof(buf) - len,
-					"c%zu", i + 1U);
-			buf[len++] = '\t';
-			if (i < bn) {
-				len += pxtostr(
-					buf + len, sizeof(buf) - len, b[i]);
-			}
-			buf[len++] = '\t';
-			if (i < an) {
-				len += pxtostr(
-					buf + len, sizeof(buf) - len, a[i]);
-			}
-			buf[len++] = '\t';
-			if (i < bn) {
-				len += qxtostr(
-					buf + len, sizeof(buf) - len, B[i]);
-			}
-			buf[len++] = '\t';
-			if (i < an) {
-				len += qxtostr(
-					buf + len, sizeof(buf) - len, A[i]);
-			}
-			buf[len++] = '\n';
-
-			fwrite(prfx, 1, prfz, stdout);
-			fwrite(buf, 1, len, stdout);
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, B[i]);
 		}
-	} while (unxp && a[0U] <= b[0U]);
+		buf[len++] = '\t';
+		if (i < an) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, A[i]);
+		}
+		buf[len++] = '\n';
 
+		fwrite(prfx, 1, prfz, stdout);
+		fwrite(buf, 1, len, stdout);
+	}
+
+	/* keep a copy for next time */
 	memcpy(xb->bids, b, sizeof(b));
 	memcpy(xb->asks, a, sizeof(a));
 	memcpy(xb->bszs, B, sizeof(B));
@@ -367,49 +346,41 @@ prqc(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to consolidated 1-books, aligned */
 	quo_t bc, ac;
+	char buf[256U];
+	size_t len = 0U;
 
-	do {
-		char buf[256U];
-		size_t len = 0U;
+	bc = book_ctop(xb->book, SIDE_BID, cqty);
+	ac = book_ctop(xb->book, SIDE_ASK, cqty);
 
-		bc = book_ctop(xb->book, SIDE_BID, cqty);
-		ac = book_ctop(xb->book, SIDE_ASK, cqty);
+	if (bc.p == xb->bid && ac.p == xb->ask) {
+		return;
+	}
 
-		if (bc.p == xb->bid && ac.p == xb->ask) {
-			break;
-		}
+	/* assign to state vars already */
+	xb->bid = bc.p, xb->ask = ac.p;
 
-		/* check self-crossing */
-		if (unxp) {
-			;
-		}
+	buf[len++] = 'C';
+	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = '\t';
+	if (bc.q >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
+	}
+	buf[len++] = '\t';
+	if (ac.q >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
+	}
+	buf[len++] = '\t';
+	if (bc.q >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
+	}
+	buf[len++] = '\t';
+	if (ac.q >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
+	}
+	buf[len++] = '\n';
 
-		/* assign to state vars already */
-		xb->bid = bc.p, xb->ask = ac.p;
-
-		buf[len++] = 'C';
-		len += qxtostr(buf + len, sizeof(buf) - len, cqty);
-		buf[len++] = '\t';
-		if (bc.q >= cqty) {
-			len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
-		}
-		buf[len++] = '\t';
-		if (ac.q >= cqty) {
-			len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
-		}
-		buf[len++] = '\t';
-		if (bc.q >= cqty) {
-			len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
-		}
-		buf[len++] = '\t';
-		if (ac.q >= cqty) {
-			len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
-		}
-		buf[len++] = '\n';
-
-		fwrite(prfx, 1, prfz, stdout);
-		fwrite(buf, 1, len, stdout);
-	} while (unxp && ac.p <= bc.p);
+	fwrite(prfx, 1, prfz, stdout);
+	fwrite(buf, 1, len, stdout);
 	return;
 }
 
@@ -427,55 +398,48 @@ prqCn(xbook_t *xb, quo_t UNUSED(q))
 	memset(a, 0, sizeof(a));
 	memset(A, 0, sizeof(A));
 
-	do {
-		size_t bn = book_ctops(b, B, xb->book, SIDE_BID, cqty, ntop);
-		size_t an = book_ctops(a, A, xb->book, SIDE_ASK, cqty, ntop);
+	size_t bn = book_ctops(b, B, xb->book, SIDE_BID, cqty, ntop);
+	size_t an = book_ctops(a, A, xb->book, SIDE_ASK, cqty, ntop);
 
-		if (!memcmp(b, xb->bids, sizeof(b)) &&
-		    !memcmp(a, xb->asks, sizeof(a))) {
-			/* nothing's changed, sod off */
-			return;
+	if (!memcmp(b, xb->bids, sizeof(b)) &&
+	    !memcmp(a, xb->asks, sizeof(a))) {
+		/* nothing's changed, sod off */
+		return;
+	}
+
+	qx_t eoc = cqty;
+	size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	for (size_t i = 0U; i < n; i++, eoc += cqty) {
+		char buf[256U];
+		size_t len = 0U;
+
+		buf[len++] = 'C';
+		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, b[i]);
 		}
-
-		if (unxp) {
-			/* uncrossing code here */
-			;
+		buf[len++] = '\t';
+		if (i < an) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, a[i]);
 		}
-
-		qx_t eoc = cqty;
-		size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
-		for (size_t i = 0U; i < n; i++, eoc += cqty) {
-			char buf[256U];
-			size_t len = 0U;
-
-			buf[len++] = 'C';
-			len += qxtostr(buf + len, sizeof(buf) - len, eoc);
-			buf[len++] = '\t';
-			if (i < bn) {
-				len += pxtostr(
-					buf + len, sizeof(buf) - len, b[i]);
-			}
-			buf[len++] = '\t';
-			if (i < an) {
-				len += pxtostr(
-					buf + len, sizeof(buf) - len, a[i]);
-			}
-			buf[len++] = '\t';
-			if (i < bn) {
-				len += qxtostr(
-					buf + len, sizeof(buf) - len, B[i]);
-			}
-			buf[len++] = '\t';
-			if (i < an) {
-				len += qxtostr(
-					buf + len, sizeof(buf) - len, A[i]);
-			}
-			buf[len++] = '\n';
-
-			fwrite(prfx, 1, prfz, stdout);
-			fwrite(buf, 1, len, stdout);
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, B[i]);
 		}
-	} while (unxp && a[0U] <= b[0U]);
+		buf[len++] = '\t';
+		if (i < an) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, A[i]);
+		}
+		buf[len++] = '\n';
+
+		fwrite(prfx, 1, prfz, stdout);
+		fwrite(buf, 1, len, stdout);
+	}
 
 	memcpy(xb->bids, b, sizeof(b));
 	memcpy(xb->asks, a, sizeof(a));
@@ -511,8 +475,6 @@ main(int argc, char *argv[])
 	if (argi->dash2_flag) {
 		prq = prq2;
 	}
-
-	unxp = argi->uncross_flag;
 
 	if (argi->dashN_arg) {
 		if (!(ntop = strtoul(argi->dashN_arg, NULL, 10))) {
