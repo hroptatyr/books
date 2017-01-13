@@ -232,7 +232,7 @@ rdq(const char *line, size_t llen)
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
 		s ^= '@';
-		q.q.s = (side_t)(s & -(s <= 2U));
+		q.q.s = (side_t)(s & -(s < NSIDES));
 
 		if (UNLIKELY(!q.q.s)) {
 			/* cannot put entry to either side, just ignore */
