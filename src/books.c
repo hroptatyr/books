@@ -90,11 +90,23 @@ book_add(book_t b, quo_t q)
 		}
 		break;
 	case LVL_0:
+		if (UNLIKELY(q.s == SIDE_CLR)) {
+			book_clr(b);
+			break;
+		}
 	default:
 		/* we don't know what to do */
 		return NOT_A_QUO;
 	}
 	return q;
+}
+
+void
+book_clr(book_t b)
+{
+	btree_clr(b.BOOK(SIDE_BID));
+	btree_clr(b.BOOK(SIDE_ASK));
+	return;
 }
 
 quo_t
