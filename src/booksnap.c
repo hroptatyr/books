@@ -83,7 +83,6 @@ static FILE *sfil;
 
 /* output mode */
 static void(*snap)(book_t, const char*);
-static unsigned int UNUSED(unxp);
 /* for N-books */
 static size_t ntop;
 static qx_t cqty;
