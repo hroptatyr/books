@@ -61,6 +61,8 @@ typedef enum {
 	SIDE_UNK,
 	SIDE_ASK,
 	SIDE_BID,
+	SIDE_CLR,
+	NSIDES
 } side_t;
 
 typedef struct {
@@ -105,6 +107,10 @@ extern book_t free_book(book_t);
  * QUO will be enriched with the R and O slot, for old price level
  * and old quantity, respectively. */
 extern quo_t book_add(book_t, quo_t);
+
+/**
+ * Clear the entire book. */
+extern void book_clr(book_t);
 
 /**
  * Return the top-most quote of BOOK'S SIDE. */

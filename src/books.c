@@ -65,6 +65,10 @@ free_book(book_t b)
 quo_t
 book_add(book_t b, quo_t q)
 {
+	if (UNLIKELY(q.s == SIDE_CLR)) {
+		book_clr(b);
+		goto out;
+	}
 	switch (q.f) {
 		qx_t tmp;
 	case LVL_3:
@@ -94,7 +98,16 @@ book_add(book_t b, quo_t q)
 		/* we don't know what to do */
 		return NOT_A_QUO;
 	}
+out:
 	return q;
+}
+
+void
+book_clr(book_t b)
+{
+	btree_clr(b.BOOK(SIDE_BID));
+	btree_clr(b.BOOK(SIDE_ASK));
+	return;
 }
 
 quo_t

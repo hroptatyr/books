@@ -384,6 +384,19 @@ btree_put(btree_t t, KEY_T k, VAL_T v)
 	return w;
 }
 
+void
+btree_clr(btree_t t)
+{
+/* bit like an optimised iterator */
+	for (; t->innerp; t = t->val->t);
+	do {
+		for (size_t i = 0U; i < t->n; i++) {
+			t->val[i].v = 0.dd;
+		}
+	} while ((t = t->next));
+	return;
+}
+
 bool
 btree_iter_next(btree_iter_t *iter)
 {
