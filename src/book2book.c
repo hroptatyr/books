@@ -174,11 +174,11 @@ rdq(const char *line, size_t llen)
 	/* rewind manually */
 	for (; on > line && on[-1] != '\t'; on--);
 	with (unsigned char s = *(unsigned char*)on) {
-		/* map A or a to ASK and B or b to BID
+		/* map A or a to ASK and B or b to BID, C or c to CLR
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
 		s ^= '@';
-		q.q.s = (side_t)(s & -(s <= 2U));
+		q.q.s = (side_t)(s & -(s < NSIDES));
 
 		if (UNLIKELY(!q.q.s)) {
 			/* cannot put entry to either side, just ignore */
@@ -591,6 +591,35 @@ Error: cannot read consolidated quantity");
 					};
 					r = book_add(book[k].book, r);
 					prq(book + k, r);
+				}
+			} else if (UNLIKELY(q.q.s == SIDE_CLR)) {
+				if (UNLIKELY(prq == prq2 || prq == prq3)) {
+					/* do it manually so we can print
+					 * the interim steps */
+					book_iter_t i;
+
+					i = book_iter(book[k].book, SIDE_BID);
+					while (book_iter_next(&i)) {
+						quo_t r = {
+							SIDE_BID, LVL_2,
+							.p = i.p,
+							.q = 0.dd,
+						};
+						r = book_add(book[k].book, r);
+						prq(book + k, r);
+					}
+
+					i = book_iter(book[k].book, SIDE_ASK);
+					while (book_iter_next(&i)) {
+						quo_t r = {
+							SIDE_ASK, LVL_2,
+							.p = i.p,
+							.q = 0.dd,
+						};
+						r = book_add(book[k].book, r);
+						prq(book + k, r);
+					}
+					continue;
 				}
 			}
 			/* add to book */
