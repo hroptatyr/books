@@ -59,8 +59,8 @@
 typedef long unsigned int tv_t;
 #define NOT_A_TIME	((tv_t)-1ULL)
 
-#define strtopx		strtod32
-#define pxtostr		d32tostr
+#define strtopx		strtod64
+#define pxtostr		d64tostr
 #define strtoqx		strtod64
 #define qxtostr		d64tostr
 

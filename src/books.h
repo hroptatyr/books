@@ -39,7 +39,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-typedef _Decimal32 px_t;
+typedef _Decimal64 px_t;
 typedef _Decimal64 qx_t;
 
 /* our books look like
@@ -82,7 +82,7 @@ typedef struct {
 #define NOT_A_QUO	(quo_t){SIDE_UNK}
 #define NOT_A_QUO_P(x)	!((x).s)
 
-_Static_assert(sizeof(quo_t) == 32U, "quo_t of wrong size");
+_Static_assert(sizeof(quo_t) == 40U, "quo_t of wrong size");
 
 typedef struct {
 	void *quos[2U];

@@ -41,7 +41,7 @@
 #include "books.h"
 
 #if !defined KEY_T
-# define KEY_T	_Decimal32
+# define KEY_T	_Decimal64
 #endif	/* !KEY_T */
 #if !defined VAL_T
 # define VAL_T	_Decimal64

@@ -52,8 +52,8 @@
 #include "books.h"
 #include "nifty.h"
 
-#define strtopx		strtod32
-#define pxtostr		d32tostr
+#define strtopx		strtod64
+#define pxtostr		d64tostr
 #define strtoqx		strtod64
 #define qxtostr		d64tostr
 
