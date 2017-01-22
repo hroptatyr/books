@@ -257,10 +257,6 @@ snap1(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	b = book_top(bk, SIDE_BID);
 	a = book_top(bk, SIDE_ASK);
 
@@ -295,10 +291,6 @@ snap2(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len, prfz;
-
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 
 	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
 	if (LIKELY(cont != NULL)) {
@@ -432,10 +424,6 @@ snap3(book_t bk, const char *cont)
 	const px_t *pp;
 	const qx_t *qp;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	if (UNLIKELY(ibk >= zbk)) {
 		/* resize */
 		const size_t olz = zbk;
@@ -561,10 +549,6 @@ snapn(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len, prfz;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
 	memset(a, -1, sizeof(a));
@@ -616,10 +600,6 @@ snapc(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	b = book_ctop(bk, SIDE_BID, cqty);
 	a = book_ctop(bk, SIDE_ASK, cqty);
 
@@ -663,10 +643,6 @@ snapCn(book_t bk, const char *cont)
 	size_t bn, an;
 	char buf[256U];
 	size_t len, prfz;
-
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
@@ -973,6 +949,8 @@ Error: cannot read consolidated quantity");
 			q.t -= offs;
 			q.t /= intv;
 
+			metr = metr ?: next(q.t);
+
 			/* do we need to shoot a snap? */
 			for (; UNLIKELY(q.t > metr); metr = next(q.t)) {
 				/* materialise snapshot */
@@ -986,7 +964,7 @@ Error: cannot read consolidated quantity");
 		}
 		free(line);
 		/* final snapshot */
-		for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+		for (ibk = 0U; metr < NOT_A_TIME && ibk < nbook + nctch; ibk++) {
 			snap(book[ibk], cont[ibk]);
 		}
 	}
