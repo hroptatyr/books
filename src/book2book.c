@@ -221,9 +221,13 @@ prq1(xbook_t *xb, quo_t UNUSED(q))
 	buf[len++] = 'c';
 	buf[len++] = '1';
 	buf[len++] = '\t';
-	len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	if (b.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	}
 	buf[len++] = '\t';
-	len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	if (a.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	}
 	buf[len++] = '\t';
 	len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 	buf[len++] = '\t';

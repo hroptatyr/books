@@ -273,9 +273,13 @@ snap1(book_t bk, const char *cont)
 	buf[len++] = 'c';
 	buf[len++] = '1';
 	buf[len++] = '\t';
-	len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	if (b.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	}
 	buf[len++] = '\t';
-	len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	if (a.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	}
 	buf[len++] = '\t';
 	len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 	buf[len++] = '\t';
