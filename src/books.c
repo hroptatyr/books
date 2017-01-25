@@ -147,9 +147,10 @@ only_p:
 quo_t
 book_ctop(book_t b, side_t s, qx_t q)
 {
+	btree_iter_t i = {.t = b.BOOK(s)};
 	qx_t P = 0.dd, Q = 0.dd;
 
-	for (btree_iter_t i = {.t = b.BOOK(s)}; btree_iter_next(&i) && Q < q;) {
+	for (; Q < q && btree_iter_next(&i);) {
 		P += i.k * i.v;
 		Q += i.v;
 	}
@@ -164,6 +165,7 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 	   book_t b, side_t s, qx_t Q, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
+	qx_t c = 0.dd, C = 0.dd;
 	size_t j;
 	qx_t R;
 
@@ -172,8 +174,7 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 	}
 
 	for (j = 0U, R = Q; j < n; j++, R += Q) {
-		qx_t c = 0.dd, C = 0.dd;
-		for (; btree_iter_next(&i) && C < R;) {
+		for (; C < R && btree_iter_next(&i);) {
 			c += i.k * i.v;
 			C += i.v;
 		}
@@ -187,8 +188,7 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 
 only_p:
 	for (j = 0U, R = Q; j < n; j++, R += Q) {
-		qx_t c = 0.dd, C = 0.dd;
-		for (; btree_iter_next(&i) && C < R;) {
+		for (; C < R && btree_iter_next(&i);) {
 			c += i.k * i.v;
 			C += i.v;
 		}
