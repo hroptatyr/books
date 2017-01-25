@@ -37,9 +37,15 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
+#if defined HAVE_DFP754_H
+# include <dfp754.h>
+#endif	/* HAVE_DFP754_H */
 #include "books.h"
 #include "btree.h"
 #include "nifty.h"
+
+#define quantizepx	quantized64
+#define quantizeqx	quantized64
 
 
 book_t
@@ -157,7 +163,8 @@ book_ctop(book_t b, side_t s, qx_t q)
 	if (UNLIKELY(Q < q)) {
 		return NOT_A_QUO;
 	}
-	return (quo_t){.s = s, .f = LVL_1, .p = (px_t)(P / Q), .q = Q};
+	return (quo_t){.s = s, .f = LVL_1,
+			.p = quantizepx((px_t)(P / Q), i.k), .q = Q};
 }
 
 size_t
@@ -181,7 +188,7 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 		if (UNLIKELY(C < R)) {
 			break;
 		}
-		p[j] = (px_t)(c / C);
+		p[j] = quantizepx((px_t)(c / C), i.k);
 		q[j] = C;
 	}
 	return j;
@@ -195,7 +202,7 @@ only_p:
 		if (UNLIKELY(C < R)) {
 			break;
 		}
-		p[j] = (px_t)(c / C);
+		p[j] = quantizepx((px_t)(c / C), i.k);
 	}
 	return j;
 }
