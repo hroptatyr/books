@@ -46,6 +46,14 @@ TESTS += book2book_05.clit
 TESTS += book2book_06.clit
 TESTS += book2book_07.clit
 TESTS += book2book_08.clit
+TESTS += book2book_09.clit
+TESTS += book2book_10.clit
+TESTS += book2book_11.clit
+TESTS += book2book_12.clit
+TESTS += book2book_13.clit
+TESTS += book2book_14.clit
+TESTS += book2book_15.clit
+TESTS += book2book_16.clit
 
 EXTRA_DIST += xmpl_01.b
 EXTRA_DIST += xmpl_02.b
