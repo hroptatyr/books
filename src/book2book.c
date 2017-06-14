@@ -368,22 +368,22 @@ prqc(xbook_t *xb, quo_t UNUSED(q))
 	/* assign to state vars already */
 	xb->bid = bc.p, xb->ask = ac.p;
 
-	buf[len++] = 'C';
-	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = 'c';
+	buf[len++] = '1';
 	buf[len++] = '\t';
-	if (bc.q >= cqty) {
+	if (bc.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
 	}
 	buf[len++] = '\t';
-	if (ac.q >= cqty) {
+	if (ac.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
 	}
 	buf[len++] = '\t';
-	if (bc.q >= cqty) {
+	if (bc.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
 	}
 	buf[len++] = '\t';
-	if (ac.q >= cqty) {
+	if (ac.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
 	}
 	buf[len++] = '\n';
@@ -422,8 +422,8 @@ prqcn(xbook_t *xb, quo_t UNUSED(q))
 		char buf[256U];
 		size_t len = 0U;
 
-		buf[len++] = 'C';
-		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		len += snprintf(buf + len, sizeof(buf) - len,
+				"c%zu", i + 1U);
 		buf[len++] = '\t';
 		if (i < bn) {
 			len += pxtostr(
@@ -473,22 +473,22 @@ prqv(xbook_t *xb, quo_t UNUSED(q))
 	/* assign to state vars already */
 	xb->bid = bc.p, xb->ask = ac.p;
 
-	buf[len++] = 'V';
-	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = 'c';
+	buf[len++] = '1';
 	buf[len++] = '\t';
-	if (bc.q * bc.p >= cqty) {
+	if (bc.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
 	}
 	buf[len++] = '\t';
-	if (ac.q * ac.p >= cqty) {
+	if (ac.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
 	}
 	buf[len++] = '\t';
-	if (bc.q * bc.p >= cqty) {
+	if (bc.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
 	}
 	buf[len++] = '\t';
-	if (ac.q * ac.p >= cqty) {
+	if (ac.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
 	}
 	buf[len++] = '\n';
@@ -527,8 +527,8 @@ prqvn(xbook_t *xb, quo_t UNUSED(q))
 		char buf[256U];
 		size_t len = 0U;
 
-		buf[len++] = 'V';
-		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		len += snprintf(buf + len, sizeof(buf) - len,
+				"c%zu", i + 1U);
 		buf[len++] = '\t';
 		if (i < bn) {
 			len += pxtostr(
