@@ -207,6 +207,63 @@ only_p:
 	return j;
 }
 
+quo_t
+book_vtop(book_t b, side_t s, qx_t v)
+{
+	btree_iter_t i = {.t = b.BOOK(s)};
+	qx_t P = 0.dd, Q = 0.dd;
+
+	for (; P < v && btree_iter_next(&i);) {
+		P += i.k * i.v;
+		Q += i.v;
+	}
+	if (UNLIKELY(P < v)) {
+		return NOT_A_QUO;
+	}
+	return (quo_t){.s = s, .f = LVL_1,
+			.p = quantizepx((px_t)(P / Q), i.k), .q = Q};
+}
+
+size_t
+book_vtops(px_t *restrict p, qx_t *restrict q,
+	   book_t b, side_t s, qx_t v, size_t n)
+{
+	btree_iter_t i = {.t = b.BOOK(s)};
+	qx_t c = 0.dd, C = 0.dd;
+	size_t j;
+	qx_t r;
+
+	if (UNLIKELY(q == NULL)) {
+		goto only_p;
+	}
+
+	for (j = 0U, r = v; j < n; j++, r += v) {
+		for (; c < r && btree_iter_next(&i);) {
+			c += i.k * i.v;
+			C += i.v;
+		}
+		if (UNLIKELY(c < r)) {
+			break;
+		}
+		p[j] = quantizepx((px_t)(c / C), i.k);
+		q[j] = C;
+	}
+	return j;
+
+only_p:
+	for (j = 0U, r = v; j < n; j++, r += v) {
+		for (; c < r && btree_iter_next(&i);) {
+			c += i.k * i.v;
+			C += i.v;
+		}
+		if (UNLIKELY(c < r)) {
+			break;
+		}
+		p[j] = quantizepx((px_t)(c / C), i.k);
+	}
+	return j;
+}
+
 
 bool
 book_iter_next(book_iter_t *iter)
