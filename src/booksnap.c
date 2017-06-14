@@ -624,7 +624,7 @@ snapc(book_t bk, const char *cont)
 		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 	}
 	buf[len++] = '\t';
-	if (b.q) {
+	if (a.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
 	}
 	buf[len++] = '\n';
@@ -720,7 +720,7 @@ snapv(book_t bk, const char *cont)
 		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 	}
 	buf[len++] = '\t';
-	if (b.q) {
+	if (a.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
 	}
 	buf[len++] = '\n';
