@@ -38,4 +38,16 @@ check_PROGRAMS += btree_02
 TESTS += btree_02.clit
 btree_02_LDADD = $(books_LIBS)
 
+TESTS += book2book_01.clit
+TESTS += book2book_02.clit
+TESTS += book2book_03.clit
+TESTS += book2book_04.clit
+TESTS += book2book_05.clit
+TESTS += book2book_06.clit
+TESTS += book2book_07.clit
+TESTS += book2book_08.clit
+
+EXTRA_DIST += xmpl_01.b
+EXTRA_DIST += xmpl_02.b
+
 ## Makefile.am ends here
