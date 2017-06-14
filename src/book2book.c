@@ -90,6 +90,7 @@ typedef struct {
 static void(*prq)(xbook_t*, quo_t);
 /* for N-books */
 static size_t ntop;
+/* consolidation, either quantity or value (price*quantity) */
 static qx_t cqty;
 
 
@@ -450,6 +451,111 @@ prqcn(xbook_t *xb, quo_t UNUSED(q))
 	return;
 }
 
+static void
+prqv(xbook_t *xb, quo_t UNUSED(q))
+{
+/* convert to value-consolidated 1-books, aligned */
+	quo_t bc, ac;
+	char buf[256U];
+	size_t len = 0U;
+
+	bc = book_vtop(xb->book, SIDE_BID, cqty);
+	ac = book_vtop(xb->book, SIDE_ASK, cqty);
+
+	if (bc.p == xb->bid && ac.p == xb->ask) {
+		return;
+	}
+
+	/* assign to state vars already */
+	xb->bid = bc.p, xb->ask = ac.p;
+
+	buf[len++] = 'V';
+	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = '\t';
+	if (bc.q * bc.p >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, bc.p);
+	}
+	buf[len++] = '\t';
+	if (ac.q * ac.p >= cqty) {
+		len += pxtostr(buf + len, sizeof(buf) - len, ac.p);
+	}
+	buf[len++] = '\t';
+	if (bc.q * bc.p >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, bc.q);
+	}
+	buf[len++] = '\t';
+	if (ac.q * ac.p >= cqty) {
+		len += qxtostr(buf + len, sizeof(buf) - len, ac.q);
+	}
+	buf[len++] = '\n';
+
+	fwrite(prfx, 1, prfz, stdout);
+	fwrite(buf, 1, len, stdout);
+	return;
+}
+
+static void
+prqvn(xbook_t *xb, quo_t UNUSED(q))
+{
+/* convert to n-books, aligned */
+	px_t b[ntop];
+	qx_t B[ntop];
+	px_t a[ntop];
+	qx_t A[ntop];
+
+	memset(b, 0, sizeof(b));
+	memset(B, 0, sizeof(B));
+	memset(a, 0, sizeof(a));
+	memset(A, 0, sizeof(A));
+
+	size_t bn = book_vtops(b, B, xb->book, SIDE_BID, cqty, ntop);
+	size_t an = book_vtops(a, A, xb->book, SIDE_ASK, cqty, ntop);
+
+	if (!memcmp(b, xb->bids, sizeof(b)) &&
+	    !memcmp(a, xb->asks, sizeof(a))) {
+		/* nothing's changed, sod off */
+		return;
+	}
+
+	qx_t eoc = cqty;
+	size_t n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	for (size_t i = 0U; i < n; i++, eoc += cqty) {
+		char buf[256U];
+		size_t len = 0U;
+
+		buf[len++] = 'V';
+		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, b[i]);
+		}
+		buf[len++] = '\t';
+		if (i < an) {
+			len += pxtostr(
+				buf + len, sizeof(buf) - len, a[i]);
+		}
+		buf[len++] = '\t';
+		if (i < bn) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, B[i]);
+		}
+		buf[len++] = '\t';
+		if (i < an) {
+			len += qxtostr(
+				buf + len, sizeof(buf) - len, A[i]);
+		}
+		buf[len++] = '\n';
+
+		fwrite(prfx, 1, prfz, stdout);
+		fwrite(buf, 1, len, stdout);
+	}
+
+	memcpy(xb->bids, b, sizeof(b));
+	memcpy(xb->asks, a, sizeof(a));
+	return;
+}
+
 
 #include "book2book.yucc"
 
@@ -495,16 +601,31 @@ Error: cannot read number of levels for top-N book");
 	}
 
 	if (argi->dashC_arg) {
-		if ((cqty = strtoqx(argi->dashC_arg, NULL)) <= 0.dd) {
+		const char *s = argi->dashC_arg;
+
+		if (*s != '/') {
+			/* quantity consolidation */
+			if (ntop > 1U) {
+				prq = prqcn;
+			} else {
+				prq = prqc;
+			}
+		} else {
+			/* value consolidation */
+			if (ntop > 1U) {
+				prq = prqvn;
+			} else {
+				prq = prqv;
+			}
+		}
+		/* advance S if value consolidation */
+		s += *s == '/';
+
+		if ((cqty = strtoqx(s, NULL)) <= 0.dd) {
 			errno = 0, serror("\
 Error: cannot read consolidated quantity");
 			rc = EXIT_FAILURE;
 			goto out;
-		}
-		if (ntop > 1U) {
-			prq = prqcn;
-		} else {
-			prq = prqc;
 		}
 	}
 
