@@ -609,22 +609,22 @@ snapc(book_t bk, const char *cont)
 		len += memncpy(buf + len, cont, strlen(cont));
 	}
 	buf[len++] = '\t';
-	buf[len++] = 'C';
-	len += qxtostr(buf + len, sizeof(buf) - len, cqty);
+	buf[len++] = 'c';
+	buf[len++] = '1';
 	buf[len++] = '\t';
-	if (b.q >= cqty) {
+	if (b.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
 	}
 	buf[len++] = '\t';
-	if (a.q >= cqty) {
+	if (a.q) {
 		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
 	}
 	buf[len++] = '\t';
-	if (b.q >= cqty) {
+	if (b.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
 	}
 	buf[len++] = '\t';
-	if (b.q >= cqty) {
+	if (b.q) {
 		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
 	}
 	buf[len++] = '\n';
@@ -634,7 +634,7 @@ snapc(book_t bk, const char *cont)
 }
 
 static void
-snapCn(book_t bk, const char *cont)
+snapcn(book_t bk, const char *cont)
 {
 	px_t b[ntop];
 	qx_t B[ntop];
@@ -658,14 +658,110 @@ snapCn(book_t bk, const char *cont)
 		len += memncpy(buf + len, cont, strlen(cont));
 	}
 	buf[len++] = '\t';
-	buf[len++] = 'C';
+	buf[len++] = 'c';
 	prfz = len;
 
 	qx_t eoc = cqty;
 	for (size_t i = 0U,
 		     n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
 	     i < n; i++, eoc += cqty, len = prfz) {
-		len += qxtostr(buf + len, sizeof(buf) - len, eoc);
+		len += snprintf(buf + len, sizeof(buf) - len, "%zu", i + 1U);
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, b[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += pxtostr(buf + len, sizeof(buf) - len, a[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < bn)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, B[i]);
+		}
+		buf[len++] = '\t';
+		if (LIKELY(i < an)) {
+			len += qxtostr(buf + len, sizeof(buf) - len, A[i]);
+		}
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+	}
+	return;
+}
+
+static void
+snapv(book_t bk, const char *cont)
+{
+	char buf[256U];
+	size_t len;
+	quo_t b, a;
+
+	b = book_vtop(bk, SIDE_BID, cqty);
+	a = book_vtop(bk, SIDE_ASK, cqty);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'c';
+	buf[len++] = '1';
+	buf[len++] = '\t';
+	if (b.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, b.p);
+	}
+	buf[len++] = '\t';
+	if (a.q) {
+		len += pxtostr(buf + len, sizeof(buf) - len, a.p);
+	}
+	buf[len++] = '\t';
+	if (b.q) {
+		len += qxtostr(buf + len, sizeof(buf) - len, b.q);
+	}
+	buf[len++] = '\t';
+	if (b.q) {
+		len += qxtostr(buf + len, sizeof(buf) - len, a.q);
+	}
+	buf[len++] = '\n';
+	/* and out */
+	fwrite(buf, 1, len, stdout);
+	return;
+}
+
+static void
+snapvn(book_t bk, const char *cont)
+{
+	px_t b[ntop];
+	qx_t B[ntop];
+	px_t a[ntop];
+	qx_t A[ntop];
+	size_t bn, an;
+	char buf[256U];
+	size_t len, prfz;
+
+	memset(b, -1, sizeof(b));
+	memset(B, -1, sizeof(B));
+	memset(a, -1, sizeof(a));
+	memset(A, -1, sizeof(A));
+
+	bn = book_vtops(b, B, bk, SIDE_BID, cqty, ntop);
+	an = book_vtops(a, A, bk, SIDE_ASK, cqty, ntop);
+
+	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'c';
+	prfz = len;
+
+	qx_t eoc = cqty;
+	for (size_t i = 0U,
+		     n = ntop < bn && ntop < an ? ntop : bn < an ? an : bn;
+	     i < n; i++, eoc += cqty, len = prfz) {
+		len += snprintf(buf + len, sizeof(buf) - len, "%zu", i + 1U);
 		buf[len++] = '\t';
 		if (LIKELY(i < bn)) {
 			len += pxtostr(buf + len, sizeof(buf) - len, b[i]);
@@ -848,16 +944,31 @@ Error: cannot read number of levels for top-N book");
 	}
 
 	if (argi->dashC_arg) {
-		if ((cqty = strtoqx(argi->dashC_arg, NULL)) <= 0.dd) {
+		const char *s = argi->dashC_arg;
+
+		if (*s != '/') {
+			/* quantity consolidation */
+			if (ntop > 1U) {
+				snap = snapcn;
+			} else {
+				snap = snapc;
+			}
+		} else {
+			/* value consolidation */
+			if (ntop > 1U) {
+				snap = snapvn;
+			} else {
+				snap = snapv;
+			}
+		}
+		/* advance S if value consolidation */
+		s += *s == '/';
+
+		if ((cqty = strtoqx(s, NULL)) <= 0.dd) {
 			errno = 0, serror("\
 Error: cannot read consolidated quantity");
 			rc = EXIT_FAILURE;
 			goto out;
-		}
-		if (ntop > 1U) {
-			snap = snapCn;
-		} else {
-			snap = snapc;
 		}
 	}
 
