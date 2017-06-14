@@ -56,7 +56,8 @@ echo
 echo "Build summary"
 echo "============="
 echo
-echo "Everything will be built"
+echo "[[x]] book2book"
+echo "[[x]] booksnap"
 echo
 
 ## configure ends here
