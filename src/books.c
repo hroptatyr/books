@@ -162,9 +162,13 @@ book_ctop(book_t b, side_t s, qx_t q)
 	}
 	if (UNLIKELY(Q < q)) {
 		return NOT_A_QUO;
+	} else if (LIKELY(Q > q)) {
+		P -= i.k * (Q - q);
 	}
 	return (quo_t){.s = s, .f = LVL_1,
-			.p = quantizepx((px_t)(P / Q), i.k), .q = Q};
+			.p = quantizepx((px_t)(P / q), i.k),
+			.q = quantizeqx(q, i.v)
+			};
 }
 
 size_t
@@ -188,8 +192,8 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 		if (UNLIKELY(C < R)) {
 			break;
 		}
-		p[j] = quantizepx((px_t)(c / C), i.k);
-		q[j] = C;
+		p[j] = quantizepx((px_t)((c - i.k * (C - R)) / R), i.k);
+		q[j] = quantizeqx(R, i.v);
 	}
 	return j;
 
@@ -202,7 +206,7 @@ only_p:
 		if (UNLIKELY(C < R)) {
 			break;
 		}
-		p[j] = quantizepx((px_t)(c / C), i.k);
+		p[j] = quantizepx((px_t)((c - i.k * (C - R)) / R), i.k);
 	}
 	return j;
 }
@@ -219,9 +223,14 @@ book_vtop(book_t b, side_t s, qx_t v)
 	}
 	if (UNLIKELY(P < v)) {
 		return NOT_A_QUO;
+	} else if (LIKELY(P > v)) {
+		/* P - v is exactly what we open too much */
+		Q -= (P - v) / i.k;
 	}
 	return (quo_t){.s = s, .f = LVL_1,
-			.p = quantizepx((px_t)(P / Q), i.k), .q = Q};
+			.p = quantizepx((px_t)(v / Q), i.k),
+			.q = quantizeqx(Q, i.v)
+			};
 }
 
 size_t
@@ -238,6 +247,7 @@ book_vtops(px_t *restrict p, qx_t *restrict q,
 	}
 
 	for (j = 0U, r = v; j < n; j++, r += v) {
+		qx_t Q;
 		for (; c < r && btree_iter_next(&i);) {
 			c += i.k * i.v;
 			C += i.v;
@@ -245,13 +255,15 @@ book_vtops(px_t *restrict p, qx_t *restrict q,
 		if (UNLIKELY(c < r)) {
 			break;
 		}
-		p[j] = quantizepx((px_t)(c / C), i.k);
-		q[j] = C;
+		Q = C - (c - r) / i.k;
+		p[j] = quantizepx((px_t)(r / Q), i.k);
+		q[j] = quantizeqx(Q, i.v);
 	}
 	return j;
 
 only_p:
 	for (j = 0U, r = v; j < n; j++, r += v) {
+		qx_t Q;
 		for (; c < r && btree_iter_next(&i);) {
 			c += i.k * i.v;
 			C += i.v;
@@ -259,7 +271,8 @@ only_p:
 		if (UNLIKELY(c < r)) {
 			break;
 		}
-		p[j] = quantizepx((px_t)(c / C), i.k);
+		Q = C - (c - r) / i.k;
+		p[j] = quantizepx((px_t)(r / Q), i.k);
 	}
 	return j;
 }
