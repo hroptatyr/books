@@ -132,6 +132,18 @@ extern quo_t book_ctop(book_t, side_t, qx_t Q);
 extern size_t
 book_ctops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t Q, size_t n);
 
+/**
+ * Return the value-consolidated quote of BOOK'S SIDE that equals or exceeds V.
+ * Value is calculated as price times quantity. */
+extern quo_t book_vtop(book_t, side_t, qx_t V);
+
+/**
+ * Put the top-most N value-consolidated price levels into PX (and QX) and
+ * return the number of levels filled.
+ * Level i equals or exceeds i*V in value. */
+extern size_t
+book_vtops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t V, size_t n);
+
 extern bool book_iter_next(book_iter_t*);
 
 
