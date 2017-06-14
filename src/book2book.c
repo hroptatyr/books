@@ -389,7 +389,7 @@ prqc(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prqCn(xbook_t *xb, quo_t UNUSED(q))
+prqcn(xbook_t *xb, quo_t UNUSED(q))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -502,7 +502,7 @@ Error: cannot read consolidated quantity");
 			goto out;
 		}
 		if (ntop > 1U) {
-			prq = prqCn;
+			prq = prqcn;
 		} else {
 			prq = prqc;
 		}
