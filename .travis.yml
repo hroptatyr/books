@@ -1,0 +1,20 @@
+language: c
+
+os:
+  - linux
+
+compiler:
+  - gcc
+
+before_script:
+  - autoreconf -vfi
+
+script:
+  - ./configure || { cat config.log; false; }
+  - make
+  - make distcheck
+    || { cat test/test-suite.log sample-*/_build/test/test-suite.log; false; }
+
+notifications:
+  email:
+    - devel@fresse.org
