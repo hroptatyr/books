@@ -40,6 +40,7 @@
 #if defined HAVE_DFP754_H
 # include <dfp754.h>
 #endif	/* HAVE_DFP754_H */
+#include "dfp754_d64.h"
 #include "books.h"
 #include "btree.h"
 #include "nifty.h"
