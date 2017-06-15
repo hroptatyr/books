@@ -305,6 +305,7 @@ AC_DEFUN([_SXE_CHECK_DFP754_FLAGS], [dnl
 	AC_CHECK_HEADERS([math.h])
 	AC_CHECK_HEADERS([dfp754.h])
 	AC_CHECK_HEADERS([dfp/stdlib.h])
+	AC_CHECK_HEADERS([decimal.h])
 
 	if test "${ac_cv_env_dfp754_CFLAGS_set}" = "set"; then
 		:
