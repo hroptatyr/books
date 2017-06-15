@@ -12,8 +12,10 @@ before_script:
 script:
   - ./configure || { cat config.log; false; }
   - make
+  - make check
+    || { cat test/test-suite.log; false; }
   - make distcheck
-    || { cat test/test-suite.log sample-*/_build/test/test-suite.log; false; }
+    || { cat books-*/_build/test/test-suite.log; false; }
 
 notifications:
   email:
