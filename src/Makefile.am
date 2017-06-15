@@ -30,6 +30,7 @@ noinst_LIBRARIES += libbooks.a
 libbooks_a_SOURCES =
 libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_SOURCES += books.c books.h
+libbooks_a_SOURCES += nifty.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 
