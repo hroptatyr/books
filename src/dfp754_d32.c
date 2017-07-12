@@ -44,6 +44,8 @@
 # include <dfp754.h>
 #elif defined HAVE_DFP_STDLIB_H
 # include <dfp/stdlib.h>
+#else  /* !HAVE_DFP754_H && !HAVE_DFP_STDLIB_H */
+extern int isinfd64(_Decimal64);
 #endif	/* HAVE_DFP754_H */
 #include "dfp754_d32.h"
 
@@ -697,6 +699,11 @@ d32tostr(char *restrict buf, size_t bsz, _Decimal32 x)
 	if (UNLIKELY(isnand32(x))) {
 		const size_t z = min_z(3U, bsz);
 		memcpy(buf, "nan", z);
+		return z;
+	} else if (UNLIKELY(isinfd32(x))) {
+		const size_t z = min_z(3U + (x < 0.df), bsz);
+		buf[0U] = '-';
+		memcpy(buf + (x < 0.df), "inf", z);
 		return z;
 	}
 #if defined HAVE_DFP754_BID_LITERALS
