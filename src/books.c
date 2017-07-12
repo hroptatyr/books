@@ -90,13 +90,13 @@ book_add(book_t b, quo_t q)
 		if (UNLIKELY(q.q < 0.dd)) {
 			/* what an odd level-1 quote */
 			return NOT_A_QUO;
-		} else if (LIKELY(!isnanpx(q.p))) {
-			/* we'd have to pop anything more top-level
-			 * in the books
-			 * we put the value first so it's guaranteed
-			 * to be in there */
-			q.o = btree_put(b.BOOK(q.s), q.p, q.q);
+		} else if (UNLIKELY(isnanpx(q.p))) {
+			btree_clr(b.BOOK(q.s));
+			break;
 		}
+		/* we'd have to pop anything more top-level in the books ...
+		 * we put the value first so it's guaranteed to be in there */
+		q.o = btree_put(b.BOOK(q.s), q.p, q.q);
 		/* now iter away anything from top that isn't our quote */
 		for (btree_iter_t i = {.t = b.BOOK(q.s)};
 		     btree_iter_next(&i) && i.k != q.p;) {
