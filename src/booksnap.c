@@ -193,7 +193,7 @@ static xquo_t
 rdq(const char *line, size_t llen)
 {
 /* process one line */
-	char *on;
+	char *lp, *on;
 	xquo_t q;
 
 	/* get timestamp */
@@ -202,23 +202,27 @@ rdq(const char *line, size_t llen)
 	}
 
 	/* get qty */
-	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
+	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without quantity */
 		return NOT_A_XQUO;
 	}
-	llen = on - line;
-	q.q.q = strtoqx(on + 1U, NULL);
+	llen = lp - line;
+	q.q.q = strtoqx(lp + 1U, NULL);
 
 	/* get prc */
-	if (UNLIKELY((on = memrchr(line, '\t', llen)) == NULL)) {
+	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
 		/* can't do without price */
 		return NOT_A_XQUO;
 	}
-	llen = on - line;
-	q.q.p = strtopx(on + 1U, NULL);
+	llen = lp - line;
+	q.q.p = strtopx(lp + 1U, &on);
+	if (UNLIKELY(on <= lp + 1U)) {
+		/* invalidate price */
+		q.q.p = NANPX;
+	}
 
 	/* get flavour, should be just before ON */
-	with (unsigned char f = *(unsigned char*)--on) {
+	with (unsigned char f = *(unsigned char*)--lp) {
 		/* map 1, 2, 3 to LVL_{1,2,3}
 		 * everything else goes to LVL_0 */
 		f ^= '0';
@@ -226,8 +230,8 @@ rdq(const char *line, size_t llen)
 	}
 
 	/* rewind manually */
-	for (; on > line && on[-1] != '\t'; on--);
-	with (unsigned char s = *(unsigned char*)on) {
+	for (; lp > line && lp[-1] != '\t'; lp--);
+	with (unsigned char s = *(unsigned char*)lp) {
 		/* map A or a to ASK and B or b to BID
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
@@ -239,12 +243,12 @@ rdq(const char *line, size_t llen)
 			return NOT_A_XQUO;
 		}
 	}
-	llen = on - line;
+	llen = lp - line;
 
 	/* see if we've got pairs */
 	q.ins = memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
 	q.ins++;
-	q.inz = on - 1U - q.ins;
+	q.inz = lp - 1U - q.ins;
 	return q;
 }
 

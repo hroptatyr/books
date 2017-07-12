@@ -87,9 +87,12 @@ book_add(book_t b, quo_t q)
 		q.o = btree_put(b.BOOK(q.s), q.p, q.q);
 		break;
 	case LVL_1:
-		if (UNLIKELY(q.q <= 0.dd)) {
+		if (UNLIKELY(q.q < 0.dd)) {
 			/* what an odd level-1 quote */
 			return NOT_A_QUO;
+		} else if (UNLIKELY(isnanpx(q.p))) {
+			btree_clr(b.BOOK(q.s));
+			break;
 		}
 		/* we'd have to pop anything more top-level in the books ...
 		 * we put the value first so it's guaranteed to be in there */
