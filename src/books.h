@@ -42,6 +42,13 @@
 typedef _Decimal64 px_t;
 typedef _Decimal64 qx_t;
 
+#define NANPX	NAND64
+#define isnanpx	isnand64
+#define NANQX	NAND64
+#define isnanqx	isnand64
+#define INFPX	INFD64
+#define isinfpx	isinfd64
+
 /* our books look like
  * T... INS ACT PRC QTY
  * with T being timestamps, the earliest first
