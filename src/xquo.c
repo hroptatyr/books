@@ -109,6 +109,12 @@ out:
 	return r;
 }
 
+ssize_t
+tvtostr(char *restrict buf, size_t bsz, tv_t t)
+{
+	return snprintf(buf, bsz, "%llu.%03llu000000", t / MSECS, t % MSECS);
+}
+
 xquo_t
 read_xquo(const char *line, size_t llen)
 {

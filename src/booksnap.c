@@ -87,12 +87,6 @@ serror(const char *fmt, ...)
 	return;
 }
 
-static ssize_t
-tvtostr(char *restrict buf, size_t bsz, tv_t t)
-{
-	return snprintf(buf, bsz, "%llu.%03llu000000", t / MSECS, t % MSECS);
-}
-
 static inline size_t
 memncpy(char *restrict tgt, const char *src, size_t zrc)
 {

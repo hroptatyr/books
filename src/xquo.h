@@ -56,6 +56,7 @@ typedef struct {
 
 
 extern tv_t strtotv(const char *ln, char **endptr);
+extern ssize_t tvtostr(char *restrict buf, size_t bsz, tv_t t);
 extern xquo_t read_xquo(const char *line, size_t llen);
 
 #endif	/* INCLUDED_xquo_h_ */
