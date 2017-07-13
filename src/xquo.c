@@ -153,10 +153,12 @@ read_xquo(const char *line, size_t llen)
 	for (; lp > line && lp[-1] != '\t'; lp--);
 	with (unsigned char s = *(unsigned char*)lp) {
 		/* map A or a to ASK and B or b to BID
+		 * map C to CLR, D to DEL (and T for TRA to DEL)
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
-		s ^= '@';
-		q.q.s = (side_t)(s & -(s < NSIDES));
+		s &= (unsigned char)-(s ^ '@' < NSIDES || s == 'T');
+		s &= 0xfU;
+		q.q.s = (side_t)s;
 
 		if (UNLIKELY(!q.q.s)) {
 			/* cannot put entry to either side, just ignore */
