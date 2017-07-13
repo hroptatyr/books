@@ -58,6 +58,10 @@ TESTS += book2book_17.clit
 TESTS += book2book_18.clit
 TESTS += book2book_19.clit
 TESTS += book2book_20.clit
+TESTS += book2book_21.clit
+TESTS += book2book_22.clit
+TESTS += book2book_23.clit
+TESTS += book2book_24.clit
 
 TESTS += booksnap_01.clit
 TESTS += booksnap_02.clit
@@ -73,5 +77,7 @@ EXTRA_DIST += xmpl_04.b
 EXTRA_DIST += xmpl_05.b
 EXTRA_DIST += xmpl_06.b
 EXTRA_DIST += xmpl_07.b
+EXTRA_DIST += xmpl_08.b
+EXTRA_DIST += xmpl_09.b
 
 ## Makefile.am ends here
