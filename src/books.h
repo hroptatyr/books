@@ -69,6 +69,7 @@ typedef enum {
 	SIDE_ASK,
 	SIDE_BID,
 	SIDE_CLR,
+	SIDE_DEL,
 	NSIDES
 } side_t;
 

@@ -72,44 +72,67 @@ free_book(book_t b)
 quo_t
 book_add(book_t b, quo_t q)
 {
-	if (UNLIKELY(q.s == SIDE_CLR)) {
-		book_clr(b);
-		goto out;
-	}
-	switch (q.f) {
-		qx_t tmp;
-	case LVL_3:
-		tmp = btree_add(b.BOOK(q.s), q.p, q.q);
-		q.o = tmp - q.q;
-		q.q = tmp;
-		break;
-	case LVL_2:
-		q.o = btree_put(b.BOOK(q.s), q.p, q.q);
-		break;
-	case LVL_1:
-		if (UNLIKELY(q.q < 0.dd)) {
-			/* what an odd level-1 quote */
-			return NOT_A_QUO;
-		} else if (UNLIKELY(isnanpx(q.p))) {
-			btree_clr(b.BOOK(q.s));
+	switch (q.s) {
+	case SIDE_BID:
+	case SIDE_ASK:
+		/* proceed with level treatment */
+		switch (q.f) {
+			qx_t tmp;
+		case LVL_3:
+			tmp = btree_add(b.BOOK(q.s), q.p, q.q);
+			q.o = tmp - q.q;
+			q.q = tmp;
 			break;
-		}
-		/* we'd have to pop anything more top-level in the books ...
-		 * we put the value first so it's guaranteed to be in there */
-		q.o = btree_put(b.BOOK(q.s), q.p, q.q);
-		/* now iter away anything from top that isn't our quote */
-		for (btree_iter_t i = {.t = b.BOOK(q.s)};
-		     btree_iter_next(&i) && i.k != q.p;) {
-			(void)btree_put(b.BOOK(q.s), i.k, 0.dd);
+		case LVL_2:
+			q.o = btree_put(b.BOOK(q.s), q.p, q.q);
+			break;
+		case LVL_1:
+			if (UNLIKELY(q.q < 0.dd)) {
+				/* what an odd level-1 quote */
+				return NOT_A_QUO;
+			} else if (UNLIKELY(isnanpx(q.p))) {
+				btree_clr(b.BOOK(q.s));
+				break;
+			}
+			/* we'd have to pop anything more top-level
+			 * in the books ...
+			 * we put the value first so it's guaranteed
+			 * to be in there */
+			q.o = btree_put(b.BOOK(q.s), q.p, q.q);
+			/* now iter away anything that isn't our quote */
+			for (btree_iter_t i = {.t = b.BOOK(q.s)};
+			     btree_iter_next(&i) && i.k != q.p;) {
+				(void)btree_put(b.BOOK(q.s), i.k, 0.dd);
+			}
+			break;
+		case LVL_0:
+		default:
+			goto inv;
 		}
 		break;
-	case LVL_0:
+	case SIDE_CLR:
+		book_clr(b);
+		break;
+	case SIDE_DEL:
+		for (btree_iter_t i = {.t = b.BOOK(SIDE_ASK)};
+		     btree_iter_next(&i) && i.k <= q.p;) {
+			i.v = i.k < q.p ? 0.dd : i.v - q.q;
+			btree_put(b.BOOK(SIDE_ASK), i.k, i.v);
+		}
+		for (btree_iter_t i = {.t = b.BOOK(SIDE_BID)};
+		     btree_iter_next(&i) && i.k >= q.p;) {
+			i.v = i.k > q.p ? 0.dd : i.v - q.q;
+			btree_put(b.BOOK(SIDE_BID), i.k, i.v);
+		}
+		break;
 	default:
-		/* we don't know what to do */
-		return NOT_A_QUO;
+		goto inv;
 	}
-out:
 	return q;
+
+inv:
+	/* we don't know what to do */
+	return NOT_A_QUO;
 }
 
 void

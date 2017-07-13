@@ -49,6 +49,7 @@ BUILT_SOURCES += book2book.yucc
 
 bin_PROGRAMS += booksnap
 booksnap_SOURCES = booksnap.c booksnap.yuck
+booksnap_SOURCES += xquo.c xquo.h
 booksnap_SOURCES += hash.c hash.h
 booksnap_SOURCES += version.c version.h
 booksnap_CPPFLAGS = $(AM_CPPFLAGS)
