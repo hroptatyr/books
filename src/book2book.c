@@ -50,6 +50,7 @@
 #include "dfp754_d64.h"
 #include "hash.h"
 #include "books.h"
+#include "xquo.h"
 #include "nifty.h"
 
 #define strtopx		strtod64
@@ -74,15 +75,6 @@ typedef struct {
 		};
 	};
 } xbook_t;
-
-typedef struct {
-	quo_t q;
-	const char *ins;
-	size_t inz;
-} xquo_t;
-
-#define NOT_A_XQUO	((xquo_t){NOT_A_QUO})
-#define NOT_A_XQUO_P(x)	(NOT_A_QUO_P((x).q))
 
 #define HX_CATCHALL	((hx_t)-1ULL)
 
@@ -140,69 +132,6 @@ free_xbook(xbook_t xb)
 /* per-run variables */
 static const char *prfx;
 static size_t prfz;
-
-static xquo_t
-rdq(const char *line, size_t llen)
-{
-/* process one line */
-	char *lp, *on;
-	xquo_t q;
-
-	/* get qty */
-	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
-		/* can't do without quantity */
-		return NOT_A_XQUO;
-	}
-	llen = lp - line;
-	q.q.q = strtoqx(lp + 1U, NULL);
-
-	/* get prc */
-	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
-		/* can't do without price */
-		return NOT_A_XQUO;
-	}
-	llen = lp - line;
-	q.q.p = strtopx(lp + 1U, &on);
-	if (UNLIKELY(on <= lp + 1U)) {
-		/* invalidate price */
-		q.q.p = NANPX;
-	}
-
-	/* get flavour, should be just before LP */
-	with (unsigned char f = *(unsigned char*)--lp) {
-		/* map 1, 2, 3 to LVL_{1,2,3}
-		 * everything else goes to LVL_0 */
-		f ^= '0';
-		q.q.f = (typeof(q.q.f))(f & -(f < 4U));
-	}
-
-	/* rewind manually */
-	for (; lp > line && lp[-1] != '\t'; lp--);
-	with (unsigned char s = *(unsigned char*)lp) {
-		/* map A or a to ASK and B or b to BID
-		 * map C to CLR, D to DEL (and T for TRA to DEL)
-		 * everything else goes to SIDE_UNK */
-		s &= ~0x20U;
-		s &= (unsigned char)-(s ^ '@' < NSIDES || s == 'T');
-		s &= 0xfU;
-		q.q.s = (side_t)s;
-
-		if (UNLIKELY(!q.q.s)) {
-			/* cannot put entry to either side, just ignore */
-			return NOT_A_XQUO;
-		}
-	}
-	llen = lp - line;
-
-	/* see if we've got pairs */
-	q.ins = memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
-	q.ins++;
-	q.inz = lp - 1U - q.ins;
-	/* let them know where the prefix ends */
-	prfx = line;
-	prfz = llen;
-	return q;
-}
 
 static void
 prq1(xbook_t *xb, quo_t UNUSED(q))
@@ -684,10 +613,13 @@ Error: cannot read consolidated quantity");
 			size_t k;
 			hx_t hx;
 
-			if (NOT_A_XQUO_P(q = rdq(line, nrd))) {
+			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
 			}
+			/* set prefix from BOL till end of q.INS */
+			prfx = line;
+			prfz = q.ins + q.inz + !!q.inz - line ;
 			/* check if we've got him in our books */
 			if (nbook || zbook) {
 				hx = hash(q.ins, q.inz);

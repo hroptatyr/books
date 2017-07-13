@@ -117,9 +117,7 @@ read_xquo(const char *line, size_t llen)
 	xquo_t q;
 
 	/* get timestamp */
-	if (UNLIKELY((q.t = strtotv(line, NULL)) == NOT_A_TIME)) {
-		return NOT_A_XQUO;
-	}
+	q.t = strtotv(line, NULL);
 
 	/* get qty */
 	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
@@ -165,12 +163,19 @@ read_xquo(const char *line, size_t llen)
 			return NOT_A_XQUO;
 		}
 	}
-	llen = lp - line;
 
-	/* see if we've got pairs */
-	q.ins = memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
-	q.ins++;
-	q.inz = lp - 1U - q.ins;
+	if (LIKELY(lp-- > line)) {
+		llen = lp - line;
+		if (LIKELY((q.ins = memrchr(line, '\t', llen)) != NULL)) {
+			q.ins++;
+		} else {
+			q.ins = line;
+		}
+		q.inz = lp - q.ins;
+	} else {
+		q.ins = line, q.inz = 0U;
+	}
+
 	return q;
 }
 

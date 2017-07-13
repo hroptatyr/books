@@ -1,0 +1,6 @@
+## -*- shell-script -*-
+
+$ book2book -1 < "${srcdir}/xmpl_09.b"
+A	c1		100.00		1.00
+A	c1	95.00	100.00	1.00	1.00
+$

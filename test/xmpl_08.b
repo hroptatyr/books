@@ -1,0 +1,9 @@
+## example book with no timestamps and no instrument
+ASK2	100.00	1.00
+ASK2	110.00	2.00
+ASK2	120.00	4.00
+ASK2	140.00	10.00
+BID2	95.00	1.00
+BID2	90.00	3.00
+BID2	85.00	5.00
+BID2	80.00	10.00
