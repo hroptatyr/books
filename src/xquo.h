@@ -36,9 +36,11 @@
  **/
 #if !defined INCLUDED_xquo_h_
 #define INCLUDED_xquo_h_
+#include <unistd.h>
 #include "books.h"
 
 #define NSECS	(1000000000)
+#define USECS	(1000000)
 #define MSECS	(1000)
 
 typedef long long unsigned int tv_t;
