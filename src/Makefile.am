@@ -36,6 +36,7 @@ libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 
 bin_PROGRAMS += book2book
 book2book_SOURCES = book2book.c book2book.yuck
+book2book_SOURCES += xquo.c xquo.h
 book2book_SOURCES += hash.c hash.h
 book2book_SOURCES += version.c version.h
 EXTRA_book2book_SOURCES = memrchr.c
