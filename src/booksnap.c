@@ -87,12 +87,6 @@ serror(const char *fmt, ...)
 	return;
 }
 
-static ssize_t
-tvtostr(char *restrict buf, size_t bsz, tv_t t)
-{
-	return snprintf(buf, bsz, "%llu.%03llu000000", t / MSECS, t % MSECS);
-}
-
 static inline size_t
 memncpy(char *restrict tgt, const char *src, size_t zrc)
 {
@@ -687,7 +681,7 @@ main(int argc, char *argv[])
 	if (argi->interval_arg) {
 		char *on;
 
-		if (!(intv = strtoul(argi->interval_arg, &on, 10))) {
+		if (!(intv = strtoull(argi->interval_arg, &on, 10))) {
 			errno = 0, serror("\
 Error: cannot read interval argument, must be positive.");
 			rc = EXIT_FAILURE;
@@ -698,19 +692,19 @@ Error: cannot read interval argument, must be positive.");
 		case 's':
 		case 'S':
 			/* user wants seconds, do they not? */
-			intv *= MSECS;
+			intv *= NSECS;
 			break;
 		case 'm':
 		case 'M':
 			switch (*++on) {
 			case '\0':
 				/* they want minutes, oh oh */
-				intv *= 60UL * MSECS;
+				intv *= 60UL * NSECS;
 				break;
 			case 's':
 			case 'S':
 				/* milliseconds it is then */
-				intv = intv;
+				intv *= USECS;
 				break;
 			default:
 				goto invalid_intv;
@@ -720,6 +714,16 @@ Error: cannot read interval argument, must be positive.");
 		case 'H':
 			/* them hours we use */
 			intv *= 60UL * 60UL * MSECS;
+			break;
+		case 'u':
+		case 'U':
+			/* micros */
+			intv *= MSECS;
+			break;
+		case 'n':
+		case 'N':
+			/* nanos stay nanos */
+			intv = intv;
 			break;
 		default:
 		invalid_intv:
@@ -732,28 +736,28 @@ Error: invalid suffix in interval, use `ms', `s', `m', or `h'");
 
 	if (argi->offset_arg) {
 		char *on;
-		long int o;
+		long long int o;
 
-		o = strtol(argi->offset_arg, &on, 10);
+		o = strtoul(argi->offset_arg, &on, 10);
 
 		switch (*on) {
 		case '\0':
 		case 's':
 		case 'S':
 			/* user wants seconds, do they not? */
-			o *= MSECS;
+			o *= NSECS;
 			break;
 		case 'm':
 		case 'M':
 			switch (*++on) {
 			case '\0':
 				/* they want minutes, oh oh */
-				o *= 60U * MSECS;
+				o *= 60U * NSECS;
 				break;
 			case 's':
 			case 'S':
 				/* milliseconds it is then */
-				o = o;
+				o *= USECS;
 				break;
 			default:
 				goto invalid_offs;
@@ -762,7 +766,16 @@ Error: invalid suffix in interval, use `ms', `s', `m', or `h'");
 		case 'h':
 		case 'H':
 			/* them hours we use */
-			o *= 60U * 60U * MSECS;
+			o *= 60U * 60U * NSECS;
+			break;
+		case 'u':
+		case 'U':
+			o *= MSECS;
+			break;
+		case 'n':
+		case 'N':
+			/* very good */
+			o = o;
 			break;
 		default:
 		invalid_offs:

@@ -86,27 +86,54 @@ strtotv(const char *ln, char **endptr)
 				return NOT_A_TIME;
 			}
 			switch (moron - on) {
-			case 9U:
-				x /= MSECS;
-			case 6U:
-				x /= MSECS;
-			case 3U:
-				break;
-			case 0U:
 			default:
+			case 0U:
+				x *= MSECS;
+			case 3U:
+				x *= MSECS;
+			case 6U:
+				x *= MSECS;
+			case 9U:
+				/* all is good */
 				break;
 			}
 			on = moron;
 		} else {
 			x = 0U;
 		}
-		r = s * MSECS + x;
+		r = s * NSECS + x;
 	}
 out:
 	if (LIKELY(endptr != NULL)) {
 		*endptr = on;
 	}
 	return r;
+}
+
+ssize_t
+tvtostr(char *restrict buf, size_t bsz, tv_t t)
+{
+	long unsigned int ts = t / NSECS;
+	long unsigned int tn = t % NSECS;
+	size_t i;
+
+	if (UNLIKELY(bsz < 19U)) {
+		return 0U;
+	}
+
+	buf[0U] = '0';
+	for (i = !ts; ts > 0U; ts /= 10U, i++) {
+		buf[i] = (ts % 10U) ^ '0';
+	}
+	/* revert buffer */
+	for (char *bp = buf + i - 1, *ap = buf, tmp; bp > ap;
+	     tmp = *bp, *bp-- = *ap, *ap++ = tmp);
+	/* nanoseconds, fixed size */
+	buf[i] = '.';
+	for (size_t j = 9U; j > 0U; tn /= 10U, j--) {
+		buf[i + j] = (tn % 10U) ^ '0';
+	}
+	return i + 10U;
 }
 
 xquo_t

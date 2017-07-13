@@ -36,9 +36,11 @@
  **/
 #if !defined INCLUDED_xquo_h_
 #define INCLUDED_xquo_h_
+#include <unistd.h>
 #include "books.h"
 
 #define NSECS	(1000000000)
+#define USECS	(1000000)
 #define MSECS	(1000)
 
 typedef long long unsigned int tv_t;
@@ -56,6 +58,7 @@ typedef struct {
 
 
 extern tv_t strtotv(const char *ln, char **endptr);
+extern ssize_t tvtostr(char *restrict buf, size_t bsz, tv_t t);
 extern xquo_t read_xquo(const char *line, size_t llen);
 
 #endif	/* INCLUDED_xquo_h_ */

@@ -18,14 +18,14 @@ given price level.
 A 3-book disaggregates the 2-book and indicates increments (or
 decrements if QUANTITY is negative) to a price level.
 
-  -i, --interval=S      Shoot snaps every S seconds, default 1.
-                        Can be suffixed with 'ms', 's', 'm', 'h' to
-                        denote milliseconds, seconds, minutes, hours
-                        respectively.
+  -i, --interval=S      Shoot snaps every S seconds, default: 1.
+                        Can be suffixed with 'ns', 'us', 'ms',
+                        's', 'm', 'h' to denote nano/micro/milliseconds,
+                        seconds, minutes, hours respectively.
   -o, --offset=S        Offset snaps by S seconds, can also be
-                        suffixed with 'ms', 's', 'm', 'h' to denote
-                        milliseconds, seconds, minutes, or hours.
-                        Default: 0
+                        suffixed with 'ns', 'us', 'ms', 's', 'm', 'h' to
+                        denote nano/micro/milliseconds, seconds, minutes,
+                        or hours respectively, default: 0
   -S, --stamps=FILE     Shoot snaps at times taken from FILE.
   -I, --instr=INSTR...  Filter for occurrences of INSTR.
   -1                    Output top-level book.
