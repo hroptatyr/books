@@ -37,10 +37,8 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
-#define _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
-#undef _GNU_SOURCE
 #include <stdarg.h>
 #include <errno.h>
 #if defined HAVE_DFP754_H
@@ -51,28 +49,13 @@
 #include <assert.h>
 #include "hash.h"
 #include "books.h"
+#include "xquo.h"
 #include "nifty.h"
-
-#define NSECS	(1000000000)
-#define MSECS	(1000)
-
-typedef long unsigned int tv_t;
-#define NOT_A_TIME	((tv_t)-1ULL)
 
 #define strtopx		strtod64
 #define pxtostr		d64tostr
 #define strtoqx		strtod64
 #define qxtostr		d64tostr
-
-typedef struct {
-	tv_t t;
-	quo_t q;
-	const char *ins;
-	size_t inz;
-} xquo_t;
-
-#define NOT_A_XQUO	((xquo_t){NOT_A_TIME, NOT_A_QUO})
-#define NOT_A_XQUO_P(x)	(NOT_A_QUO_P((x).q))
 
 #define HX_CATCHALL	((hx_t)-1ULL)
 
@@ -104,55 +87,10 @@ serror(const char *fmt, ...)
 	return;
 }
 
-static tv_t
-strtotv(const char *ln, char **endptr)
-{
-	char *on;
-	tv_t r;
-
-	/* time value up first */
-	with (long unsigned int s, x) {
-		if (UNLIKELY(!(s = strtoul(ln, &on, 10)) || on == NULL)) {
-			r = NOT_A_TIME;
-			goto out;
-		} else if (*on == '.') {
-			char *moron;
-
-			x = strtoul(++on, &moron, 10);
-			if (UNLIKELY(moron - on > 9U)) {
-				return NOT_A_TIME;
-			} else if ((moron - on) % 3U) {
-				/* huh? */
-				return NOT_A_TIME;
-			}
-			switch (moron - on) {
-			case 9U:
-				x /= MSECS;
-			case 6U:
-				x /= MSECS;
-			case 3U:
-				break;
-			case 0U:
-			default:
-				break;
-			}
-			on = moron;
-		} else {
-			x = 0U;
-		}
-		r = s * MSECS + x;
-	}
-out:
-	if (LIKELY(endptr != NULL)) {
-		*endptr = on;
-	}
-	return r;
-}
-
 static ssize_t
 tvtostr(char *restrict buf, size_t bsz, tv_t t)
 {
-	return snprintf(buf, bsz, "%lu.%03lu000000", t / MSECS, t % MSECS);
+	return snprintf(buf, bsz, "%llu.%03llu000000", t / MSECS, t % MSECS);
 }
 
 static inline size_t
@@ -187,69 +125,6 @@ _next_stmp(tv_t newm)
 	line = NULL;
 	llen = 0UL;
 	return NOT_A_TIME;
-}
-
-static xquo_t
-rdq(const char *line, size_t llen)
-{
-/* process one line */
-	char *lp, *on;
-	xquo_t q;
-
-	/* get timestamp */
-	if (UNLIKELY((q.t = strtotv(line, NULL)) == NOT_A_TIME)) {
-		return NOT_A_XQUO;
-	}
-
-	/* get qty */
-	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
-		/* can't do without quantity */
-		return NOT_A_XQUO;
-	}
-	llen = lp - line;
-	q.q.q = strtoqx(lp + 1U, NULL);
-
-	/* get prc */
-	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
-		/* can't do without price */
-		return NOT_A_XQUO;
-	}
-	llen = lp - line;
-	q.q.p = strtopx(lp + 1U, &on);
-	if (UNLIKELY(on <= lp + 1U)) {
-		/* invalidate price */
-		q.q.p = NANPX;
-	}
-
-	/* get flavour, should be just before ON */
-	with (unsigned char f = *(unsigned char*)--lp) {
-		/* map 1, 2, 3 to LVL_{1,2,3}
-		 * everything else goes to LVL_0 */
-		f ^= '0';
-		q.q.f = (typeof(q.q.f))(f & -(f < 4U));
-	}
-
-	/* rewind manually */
-	for (; lp > line && lp[-1] != '\t'; lp--);
-	with (unsigned char s = *(unsigned char*)lp) {
-		/* map A or a to ASK and B or b to BID
-		 * everything else goes to SIDE_UNK */
-		s &= ~0x20U;
-		s ^= '@';
-		q.q.s = (side_t)(s & -(s < NSIDES));
-
-		if (UNLIKELY(!q.q.s)) {
-			/* cannot put entry to either side, just ignore */
-			return NOT_A_XQUO;
-		}
-	}
-	llen = lp - line;
-
-	/* see if we've got pairs */
-	q.ins = memrchr(line, '\t', llen - 1U) ?: deconst(line - 1U);
-	q.ins++;
-	q.inz = lp - 1U - q.ins;
-	return q;
 }
 
 
@@ -1028,7 +903,7 @@ Error: cannot read consolidated quantity");
 			size_t k;
 			hx_t hx;
 
-			if (NOT_A_XQUO_P(q = rdq(line, nrd))) {
+			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
 			}
