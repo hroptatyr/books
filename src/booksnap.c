@@ -919,6 +919,9 @@ Error: cannot read consolidated quantity");
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
+			} else if (q.t == NOT_A_TIME) {
+				/* invalid quote line */
+				continue;
 			}
 			/* check if we've got him in our books */
 			if (nbook || zbook) {
