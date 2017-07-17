@@ -8,7 +8,7 @@ AM_LDFLAGS = $(XCCLDFLAGS)
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
-lib_LTLIBRARIES =
+lib_LIBRARIES =
 noinst_LIBRARIES =
 noinst_HEADERS =
 BUILT_SOURCES =
@@ -26,13 +26,19 @@ libdfp_a_SOURCES += dfp754_d64.c dfp754_d64.h
 libdfp_a_CPPFLAGS = $(AM_CPPFLAGS)
 libdfp_a_CPPFLAGS += $(dfp754_CFLAGS)
 
-noinst_LIBRARIES += libbooks.a
+lib_LIBRARIES += libbooks.a
 libbooks_a_SOURCES =
 libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_SOURCES += books.c books.h
 libbooks_a_SOURCES += nifty.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
+libbooks_a_LIBADD = $(dfp754_LIBS)
+libbooks_a_LIBADD += libdfp.a
+
+pkginclude_HEADERS =
+pkginclude_HEADERS += books.h
+pkginclude_HEADERS += btree.h
 
 bin_PROGRAMS += book2book
 book2book_SOURCES = book2book.c book2book.yuck
