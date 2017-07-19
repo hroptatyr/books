@@ -161,6 +161,12 @@ static tv_t(*next)(tv_t);
 static tv_t
 _next_intv(tv_t newm)
 {
+	newm--;
+	newm -= offs;
+	newm /= intv;
+	newm++;
+	newm *= intv;
+	newm += offs;
 	return newm;
 }
 
@@ -193,7 +199,7 @@ snap1(book_t bk, const char *cont)
 	b = book_top(bk, SIDE_BID);
 	a = book_top(bk, SIDE_ASK);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -225,7 +231,7 @@ snap2(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len, prfz;
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -236,7 +242,7 @@ snap2(book_t bk, const char *cont)
 	buf[len++] = '\t';
 	prfz = len;
 
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)};
+	for (book_iter_t i = book_iter(bk, SIDE_BID);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -248,7 +254,7 @@ snap2(book_t bk, const char *cont)
 
 	/* go to asks */
 	buf[prfz - 3U] = 'A';
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)};
+	for (book_iter_t i = book_iter(bk, SIDE_ASK);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -366,7 +372,7 @@ snap3(book_t bk, const char *cont)
 		memset(snap3_aux + olz, 0, (zbk - olz) * sizeof(*snap3_aux));
 	}
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -490,7 +496,7 @@ snapn(book_t bk, const char *cont)
 	bn = book_tops(b, B, bk, SIDE_BID, ntop);
 	an = book_tops(a, A, bk, SIDE_ASK, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -536,7 +542,7 @@ snapc(book_t bk, const char *cont)
 	b = book_ctop(bk, SIDE_BID, cqty);
 	a = book_ctop(bk, SIDE_ASK, cqty);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -585,7 +591,7 @@ snapcn(book_t bk, const char *cont)
 	bn = book_ctops(b, B, bk, SIDE_BID, cqty, ntop);
 	an = book_ctops(a, A, bk, SIDE_ASK, cqty, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -632,7 +638,7 @@ snapv(book_t bk, const char *cont)
 	b = book_vtop(bk, SIDE_BID, cqty);
 	a = book_vtop(bk, SIDE_ASK, cqty);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -681,7 +687,7 @@ snapvn(book_t bk, const char *cont)
 	bn = book_vtops(b, B, bk, SIDE_BID, cqty, ntop);
 	an = book_vtops(a, A, bk, SIDE_ASK, cqty, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -948,26 +954,24 @@ Error: cannot read consolidated quantity");
 				book = realloc(book, zbook * sizeof(*book));
 			}
 			/* initialise the book */
-			cont[nbook] = strndup(q.ins, q.inz),
-				conx[nbook] = hx,
-				book[nbook] = make_book(),
-				nbook++;
+			cont[nbook] = strndup(q.ins, q.inz);
+			conx[nbook] = hx;
+			book[nbook] = make_book();
+			nbook++;
 		snap:
-			/* align metronome to interval */
-			q.t--;
-			q.t -= offs;
-			q.t /= intv;
-
-			metr = metr ?: next(q.t);
-
 			/* do we need to shoot a snap? */
-			for (; UNLIKELY(q.t > metr); metr = next(q.t)) {
+			if (LIKELY(q.t <= metr)) {
+				goto badd;
+			}
+			if (LIKELY(metr)) {
 				/* materialise snapshot */
 				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
 					snap(book[ibk], cont[ibk]);
 				}
 			}
-
+			/* set new metronome for next time */
+			metr = next(q.t);
+		badd:
 			/* add to book */
 			q.q = book_add(book[k], q.q);
 		}
