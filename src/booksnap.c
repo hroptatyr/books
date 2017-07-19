@@ -149,7 +149,7 @@ sufstrtotv(const char *str)
 	}
 	if (UNLIKELY(*++str != '\0')) {
 	invalid:
-		return NOT_A_TIME;
+		return NANTV;
 	}
 	return r;
 }
@@ -177,14 +177,14 @@ _next_stmp(tv_t newm)
 	static size_t llen;
 
 	if (getline(&line, &llen, sfil) > 0 &&
-	    (newm = strtotv(line, NULL)) != NOT_A_TIME) {
+	    (newm = strtotv(line, NULL)) != NANTV) {
 		return newm - 1ULL;
 	}
 	/* otherwise it's the end of the road */
 	free(line);
 	line = NULL;
 	llen = 0UL;
-	return NOT_A_TIME;
+	return NANTV;
 }
 
 
@@ -754,7 +754,7 @@ Error: cannot read interval argument, must be positive.");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
-		if (UNLIKELY((mult = sufstrtotv(on)) == NOT_A_TIME)) {
+		if (UNLIKELY((mult = sufstrtotv(on)) == NANTV)) {
 			errno = 0, serror("\
 Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -770,7 +770,7 @@ Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 
 		o = strtol(argi->offset_arg, &on, 10);
 		mult = sufstrtotv(on);
-		if (o && mult == NOT_A_TIME) {
+		if (o && mult == NANTV) {
 			errno = 0, serror("\
 Error: invalid suffix in offset, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -809,7 +809,7 @@ Error: cannot open stamps file");
 		tv_t x;
 
 		inva = strtoull(argi->invalidate_arg, &on, 10);
-		if (UNLIKELY((x = sufstrtotv(on)) == NOT_A_TIME)) {
+		if (UNLIKELY((x = sufstrtotv(on)) == NANTV)) {
 			errno = 0, serror("\
 Error: invalid suffix to invalidate, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -928,7 +928,7 @@ Error: cannot read consolidated quantity");
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
-			} else if (q.t == NOT_A_TIME) {
+			} else if (q.q.t == NANTV) {
 				/* invalid quote line */
 				continue;
 			}
@@ -960,7 +960,7 @@ Error: cannot read consolidated quantity");
 			nbook++;
 		snap:
 			/* do we need to shoot a snap? */
-			if (LIKELY(q.t <= metr)) {
+			if (LIKELY(q.q.t <= metr)) {
 				goto badd;
 			}
 			if (LIKELY(metr)) {
@@ -970,14 +970,14 @@ Error: cannot read consolidated quantity");
 				}
 			}
 			/* set new metronome for next time */
-			metr = next(q.t);
+			metr = next(q.q.t);
 		badd:
 			/* add to book */
 			q.q = book_add(book[k], q.q);
 		}
 		free(line);
 		/* final snapshot */
-		for (ibk = 0U; metr < NOT_A_TIME && ibk < nbook + nctch; ibk++) {
+		for (ibk = 0U; metr < NANTV && ibk < nbook + nctch; ibk++) {
 			snap(book[ibk], cont[ibk]);
 		}
 	}

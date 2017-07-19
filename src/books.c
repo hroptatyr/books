@@ -78,16 +78,26 @@ book_add(book_t b, quo_t q)
 		/* proceed with level treatment */
 		switch (q.f) {
 			btree_val_t *tmp;
+			qx_t o;
+			tv_t t;
 		case LVL_3:
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
-			q.q += q.o;
-			q.q = tmp->q = q.q >= 0.dd ? q.q : 0.dd;
+			o = tmp->q;
+			t = tmp->t;
+			q.q += o;
+			tmp->q = q.q >= 0.dd ? q.q : 0.dd;
+			tmp->t = q.t;
+			q.q = o;
+			q.t = t;
 			break;
 		case LVL_2:
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
+			o = tmp->q;
+			t = tmp->t;
 			tmp->q = q.q;
+			tmp->t = q.t;
+			q.q = o;
+			q.t = t;
 			break;
 		case LVL_1:
 			if (UNLIKELY(q.q < 0.dd)) {
@@ -102,8 +112,12 @@ book_add(book_t b, quo_t q)
 			 * we put the value first so it's guaranteed
 			 * to be in there */
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
+			o = tmp->q;
+			t = tmp->t;
 			tmp->q = q.q;
+			tmp->t = q.t;
+			q.q = o;
+			q.t = t;
 			/* now iter away anything that isn't our quote */
 			for (btree_iter_t i = {.t = b.BOOK(q.s)};
 			     btree_iter_next(&i) && i.k != q.p;) {
@@ -154,7 +168,7 @@ book_top(book_t b, side_t s)
 	if (UNLIKELY(!btree_iter_next(&i))) {
 		return NOT_A_QUO;
 	}
-	return (quo_t){.s = s, .f = LVL_1, .p = i.k, .q = i.v->q};
+	return (quo_t){.s = s, .f = LVL_1, .p = i.k, .q = i.v->q, .t = i.v->t};
 }
 
 size_t
@@ -197,7 +211,8 @@ book_ctop(book_t b, side_t s, qx_t q)
 	}
 	return (quo_t){.s = s, .f = LVL_1,
 			.p = quantizepx((px_t)(P / q), i.k),
-			.q = quantizeqx(q, i.v->q)
+			.q = quantizeqx(q, i.v->q),
+			.t = i.v->t,
 			};
 }
 
@@ -259,7 +274,8 @@ book_vtop(book_t b, side_t s, qx_t v)
 	}
 	return (quo_t){.s = s, .f = LVL_1,
 			.p = quantizepx((px_t)(v / Q), i.k),
-			.q = quantizeqx(Q, i.v->q)
+			.q = quantizeqx(Q, i.v->q),
+			.t = i.v->t,
 			};
 }
 
