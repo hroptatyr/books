@@ -105,10 +105,8 @@ typedef struct {
 	void *b;
 	size_t i;
 	px_t p;
-	union {
-		qx_t q;
-		void *v;
-	};
+	qx_t q;
+	tv_t t;
 } book_iter_t;
 
 #define BIDX(x)		((x) - 1U)

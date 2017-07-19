@@ -329,7 +329,9 @@ book_iter_next(book_iter_t *iter)
 {
 	btree_iter_t *i = (void*)iter;
 	if (btree_iter_next(i)) {
-		iter->q = i->v->q;
+		btree_val_t *tmp = i->v;
+		iter->q = tmp->q;
+		iter->t = tmp->t;
 		return true;
 	}
 	return false;
