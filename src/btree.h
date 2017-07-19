@@ -4,7 +4,7 @@
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of books.
+ * This file is part of clob.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,49 +38,26 @@
 #define INCLUDED_btree_h_
 #include <stdlib.h>
 #include <stdbool.h>
-#include "books.h"
-
-#if !defined KEY_T
-# define KEY_T	_Decimal64
-#endif	/* !KEY_T */
-
-#if !defined VAL_T
-typedef struct {
-	_Decimal64 q;
-	long long unsigned int t;
-} btree_val_t;
-
-static inline bool
-btree_val_nil_p(btree_val_t v)
-{
-	return v.q <= 0.dd;
-}
-
-# define VAL_0	((btree_val_t){0.dd})
-# define VAL_T	btree_val_t
-#endif	/* !VAL_T */
+/* defines btree_key_t and btree_val_t, hopefully */
+#include "btree_val.h"
 
 typedef struct btree_s *btree_t;
 
 typedef struct {
 	btree_t t;
 	size_t i;
-	KEY_T k;
-	VAL_T v;
+	btree_key_t k;
+	btree_val_t *v;
 } btree_iter_t;
 
 
 extern btree_t make_btree(bool descp);
 extern void free_btree(btree_t);
 
-extern VAL_T btree_add(btree_t, KEY_T, VAL_T);
-extern VAL_T btree_put(btree_t, KEY_T, VAL_T);
-extern void btree_clr(btree_t);
-
-extern KEY_T btree_min(btree_t, VAL_T*);
-extern KEY_T btree_max(btree_t, VAL_T*);
-extern KEY_T btree_top(btree_t, VAL_T*);
-extern KEY_T btree_bot(btree_t, VAL_T*);
+extern btree_val_t *btree_get(btree_t, btree_key_t);
+extern btree_val_t *btree_put(btree_t, btree_key_t);
+extern btree_val_t btree_rem(btree_t, btree_key_t);
+extern btree_val_t *btree_top(btree_t, btree_key_t*);
 
 extern bool btree_iter_next(btree_iter_t*);
 
