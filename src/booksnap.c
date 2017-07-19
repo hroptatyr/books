@@ -966,13 +966,15 @@ Error: cannot read consolidated quantity");
 			if (LIKELY(metr)) {
 				/* materialise snapshot */
 				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+					book_exp(book[ibk], inva ? metr : 0ULL);
 					snap(book[ibk], cont[ibk]);
 				}
 			}
-			/* set new metronome for next time */
+			/* set new metronome for next time and one for expiry */
 			metr = next(q.q.t);
 		badd:
 			/* add to book */
+			q.q.t += inva;
 			q.q = book_add(book[k], q.q);
 		}
 		free(line);
