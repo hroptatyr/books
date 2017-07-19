@@ -61,6 +61,8 @@ TESTS += booksnap_03.clit
 TESTS += booksnap_04.clit
 TESTS += booksnap_05.clit
 TESTS += booksnap_06.clit
+TESTS += booksnap_07.clit
+TESTS += booksnap_08.clit
 
 EXTRA_DIST += xmpl_01.b
 EXTRA_DIST += xmpl_02.b
@@ -71,5 +73,6 @@ EXTRA_DIST += xmpl_06.b
 EXTRA_DIST += xmpl_07.b
 EXTRA_DIST += xmpl_08.b
 EXTRA_DIST += xmpl_09.b
+EXTRA_DIST += xmpl_10.b
 
 ## Makefile.am ends here
