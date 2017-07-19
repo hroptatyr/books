@@ -127,6 +127,10 @@ extern quo_t book_add(book_t, quo_t);
 extern void book_clr(book_t);
 
 /**
+ * Expunge all quotes older than T. */
+extern void book_exp(book_t, tv_t);
+
+/**
  * Return the top-most quote of BOOK'S SIDE. */
 extern quo_t book_top(book_t, side_t);
 

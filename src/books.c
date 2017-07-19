@@ -160,6 +160,29 @@ book_clr(book_t b)
 	return;
 }
 
+void
+book_exp(book_t b, tv_t t)
+{
+	if (UNLIKELY(t == 0ULL)) {
+		return;
+	} else if (UNLIKELY(t == NANTV)) {
+		book_clr(b);
+		return;
+	}
+	/* otherwise */
+	for (btree_iter_t i = {b.BOOK(SIDE_ASK)}; btree_iter_next(&i);) {
+		if (i.v->t < t) {
+			*i.v = btree_val_nil;
+		}
+	}
+	for (btree_iter_t i = {b.BOOK(SIDE_BID)}; btree_iter_next(&i);) {
+		if (i.v->t < t) {
+			*i.v = btree_val_nil;
+		}
+	}
+	return;
+}
+
 quo_t
 book_top(book_t b, side_t s)
 {
