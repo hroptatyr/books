@@ -60,8 +60,9 @@
 #define HX_CATCHALL	((hx_t)-1ULL)
 
 /* command line params */
-static tv_t intv = 1U * MSECS;
+static tv_t intv = 1U * NSECS;
 static tv_t offs = 0U * MSECS;
+static tv_t inva;
 static FILE *sfil;
 
 /* output mode */
@@ -796,6 +797,21 @@ Error: cannot open stamps file");
 
 	/* use a next routine du jour */
 	next = !argi->stamps_arg ? _next_intv : _next_stmp;
+
+	if (argi->invalidate_arg) {
+		char *on;
+		tv_t x;
+
+		inva = strtoull(argi->invalidate_arg, &on, 10);
+		if (UNLIKELY((x = sufstrtotv(on)) == NOT_A_TIME)) {
+			errno = 0, serror("\
+Error: invalid suffix to invalidate, use `ns', `us', `ms', `s', `m', or `h'");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		/* factorise inva, use periods as default */
+		inva *= x ?: intv;
+	}
 
 	snap = snap2;
 	if (argi->dash1_flag) {

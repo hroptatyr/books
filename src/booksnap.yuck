@@ -26,6 +26,10 @@ decrements if QUANTITY is negative) to a price level.
                         suffixed with 'ns', 'us', 'ms', 's', 'm', 'h' to
                         denote nano/micro/milliseconds, seconds, minutes,
                         or hours respectively, default: 0
+  --invalidate=S        Invalidate quotes after S periods, default: off
+                        Can be suffixed with 'ns', 'us', 'ms',
+                        's', 'm', 'h' to denote nano/micro/milliseconds,
+                        seconds, minutes, hours respectively.
   -S, --stamps=FILE     Shoot snaps at times taken from FILE.
   -I, --instr=INSTR...  Filter for occurrences of INSTR.
   -1                    Output top-level book.
