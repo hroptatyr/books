@@ -43,8 +43,21 @@
 #if !defined KEY_T
 # define KEY_T	_Decimal64
 #endif	/* !KEY_T */
+
 #if !defined VAL_T
-# define VAL_T	_Decimal64
+typedef struct {
+	_Decimal64 q;
+	long long unsigned int t;
+} btree_val_t;
+
+static inline bool
+btree_val_nil_p(btree_val_t v)
+{
+	return v.q <= 0.dd;
+}
+
+# define VAL_0	((btree_val_t){0.dd})
+# define VAL_T	btree_val_t
 #endif	/* !VAL_T */
 
 typedef struct btree_s *btree_t;
@@ -70,10 +83,5 @@ extern KEY_T btree_top(btree_t, VAL_T*);
 extern KEY_T btree_bot(btree_t, VAL_T*);
 
 extern bool btree_iter_next(btree_iter_t*);
-
-
-/* for debugging */
-extern void btree_prnt(btree_t);
-extern void btree_chck(btree_t);
 
 #endif	/* INCLUDED_btree_h_ */

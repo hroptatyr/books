@@ -50,14 +50,14 @@
 typedef union {
 	VAL_T v;
 	btree_t t;
-} btree_val_t;
+} btree_val_u;
 
 struct btree_s {
 	uint32_t n;
 	uint32_t innerp:1;
 	uint32_t descp:1;
 	KEY_T key[63U + 1U/*spare*/];
-	btree_val_t val[64U];
+	btree_val_u val[64U];
 	btree_t next;
 };
 
@@ -69,7 +69,8 @@ node_free_p(btree_t t)
  * and we say a btree cell can be pruned if all of its children can be pruned */
 	size_t nul;
 	if (!t->innerp) {
-		for (nul = 0U; nul < t->n && t->val[nul].v <= 0.dd; nul++);
+		for (nul = 0U;
+		     nul < t->n && btree_val_nil_p(t->val[nul].v); nul++);
 		return nul >= t->n;
 	}
 	/* otherwise recur */
@@ -193,7 +194,7 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 		goto out;
 	}
 	/* otherwise do a scan to see if we have spare items */
-	for (nul = 0U; nul < t->n && t->val[nul].v > 0.dd; nul++);
+	for (nul = 0U; nul < t->n && !btree_val_nil_p(t->val[nul].v); nul++);
 
 	if (nul > i) {
 		/* spare item is far to the right */
@@ -216,7 +217,7 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	}
 	t->n += !(nul < t->n);
 	t->key[i] = k;
-	t->val[i].v = 0.dd;
+	t->val[i].v = VAL_0;
 out:
 	*v = &t->val[i].v;
 	return t->n >= countof(t->key) - 1U;
@@ -254,61 +255,6 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 		node_split(t, i);
 	}
 	return t->n >= countof(t->key) - 1U;
-}
-
-
-#include <stdio.h>
-static void
-__prnt(btree_t t, size_t lvl)
-{
-	printf("%p\tL%zu", t, lvl);
-	if (t->innerp) {
-		for (size_t i = 0U; i < t->n; i++) {
-			printf("\t%f", (double)t->key[i]);
-		}
-	} else {
-		/* leaves */
-		for (size_t i = 0U; i < t->n; i++) {
-			printf("\t%f|%f", (double)t->key[i], (double)t->val[i].v);
-		}
-	}
-	putchar('\n');
-	if (t->innerp) {
-		for (size_t i = 0U; i <= t->n; i++) {
-			__prnt(t->val[i].t, lvl + 1U);
-		}
-	}
-	return;
-}
-
-static void
-__chck(btree_t t, KEY_T thresh)
-{
-	switch (t->descp) {
-	case 0U:
-		for (size_t i = 0U; i < t->n; i++) {
-			if (t->key[i] > thresh) {
-				printf("ALARM %f > %f\n",
-				       (double)t->key[i], (double)thresh);
-			}
-		}
-		break;
-	case 1U:
-		for (size_t i = 0U; i < t->n; i++) {
-			if (t->key[i] < thresh) {
-				printf("ALARM %f < %f\n",
-				       (double)t->key[i], (double)thresh);
-			}
-		}
-		break;
-	}
-	if (!t->innerp) {
-		return;
-	}
-	for (size_t i = 0U; i < t->n; i++) {
-		__chck(t->val[i].t, t->key[i]);
-	}
-	return;
 }
 
 
@@ -391,7 +337,7 @@ btree_clr(btree_t t)
 	for (; t->innerp; t = t->val->t);
 	do {
 		for (size_t i = 0U; i < t->n; i++) {
-			t->val[i].v = 0.dd;
+			t->val[i].v = VAL_0;
 		}
 	} while ((t = t->next));
 	return;
@@ -406,7 +352,7 @@ btree_iter_next(btree_iter_t *iter)
 	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
 	do {
 		for (size_t i = iter->i; i < iter->t->n; i++) {
-			if (LIKELY(iter->t->val[i].v > 0.dd)) {
+			if (LIKELY(!btree_val_nil_p(iter->t->val[i].v))) {
 				/* good one */
 				iter->k = iter->t->key[i];
 				iter->v = iter->t->val[i].v;
@@ -418,27 +364,6 @@ btree_iter_next(btree_iter_t *iter)
 		iter->i = 0U;
 	} while ((iter->t = iter->t->next));
 	return false;
-}
-
-
-/* for debugging purposes */
-void
-btree_prnt(btree_t t)
-{
-	__prnt(t, 0U);
-	return;
-}
-
-void
-btree_chck(btree_t t)
-{
-	if (!t->innerp) {
-		return;
-	}
-	for (size_t i = 0U; i < t->n; i++) {
-		__chck(t->val[i].t, t->key[i]);
-	}
-	return;
 }
 
 /* btree.c ends here */
