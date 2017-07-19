@@ -57,6 +57,7 @@ extern void free_btree(btree_t);
 extern btree_val_t *btree_get(btree_t, btree_key_t);
 extern btree_val_t *btree_put(btree_t, btree_key_t);
 extern btree_val_t btree_rem(btree_t, btree_key_t);
+extern void btree_clr(btree_t);
 extern btree_val_t *btree_top(btree_t, btree_key_t*);
 
 extern bool btree_iter_next(btree_iter_t*);

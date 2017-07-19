@@ -393,6 +393,19 @@ btree_rem(btree_t t, btree_key_t k)
 	return w;
 }
 
+void
+btree_clr(btree_t t)
+{
+/* bit like an optimised iterator */
+	for (; t->innerp; t = t->val->t);
+	do {
+		for (size_t i = 0U; i < t->n; i++) {
+			t->val[i].v = btree_val_nil;
+		}
+	} while ((t = t->next));
+	return;
+}
+
 btree_val_t*
 btree_top(btree_t t, btree_key_t *k)
 {
