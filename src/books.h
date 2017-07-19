@@ -41,6 +41,7 @@
 
 typedef _Decimal64 px_t;
 typedef _Decimal64 qx_t;
+typedef long long unsigned int tv_t;
 
 #define NANPX	NAND64
 #define isnanpx	isnand64
@@ -48,6 +49,11 @@ typedef _Decimal64 qx_t;
 #define isnanqx	isnand64
 #define INFPX	INFD64
 #define isinfpx	isinfd64
+#define NANTV	((tv_t)-1ULL)
+
+#define NSECS	(1000000000)
+#define USECS	(1000000)
+#define MSECS	(1000)
 
 /* our books look like
  * T... INS ACT PRC QTY
@@ -82,15 +88,14 @@ typedef struct {
 		LVL_3,
 	} f;
 	px_t p;
-	px_t r;
 	qx_t q;
-	qx_t o;
+	tv_t t;
 } quo_t;
 
 #define NOT_A_QUO	(quo_t){SIDE_UNK}
 #define NOT_A_QUO_P(x)	!((x).s)
 
-_Static_assert(sizeof(quo_t) == 40U, "quo_t of wrong size");
+_Static_assert(sizeof(quo_t) == 32U, "quo_t of wrong size");
 
 typedef struct {
 	void *quos[2U];
@@ -101,6 +106,7 @@ typedef struct {
 	size_t i;
 	px_t p;
 	qx_t q;
+	tv_t t;
 } book_iter_t;
 
 #define BIDX(x)		((x) - 1U)
@@ -112,13 +118,17 @@ extern book_t free_book(book_t);
 
 /**
  * Add QUO to BOOK.
- * QUO will be enriched with the R and O slot, for old price level
- * and old quantity, respectively. */
+ * QUO will hold the previous state, i.e. the old price level
+ * in p, the old quantity in q and the old time in t, respectively. */
 extern quo_t book_add(book_t, quo_t);
 
 /**
  * Clear the entire book. */
 extern void book_clr(book_t);
+
+/**
+ * Expunge all quotes older than T. */
+extern void book_exp(book_t, tv_t);
 
 /**
  * Return the top-most quote of BOOK'S SIDE. */

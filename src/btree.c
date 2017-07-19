@@ -4,7 +4,7 @@
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of books.
+ * This file is part of clob.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,19 +45,21 @@
 #include <string.h>
 #include <stdbool.h>
 #include "btree.h"
+#include "btree_val.h"
 #include "nifty.h"
 
 typedef union {
-	VAL_T v;
+	btree_val_t v;
 	btree_t t;
-} btree_val_t;
+} btree_ual_t;
 
 struct btree_s {
 	uint32_t n;
 	uint32_t innerp:1;
 	uint32_t descp:1;
-	KEY_T key[63U + 1U/*spare*/];
-	btree_val_t val[64U];
+	uint32_t splitp:1;
+	btree_key_t key[63U + 1U/*spare*/];
+	btree_ual_t val[64U];
 	btree_t next;
 };
 
@@ -69,7 +71,8 @@ node_free_p(btree_t t)
  * and we say a btree cell can be pruned if all of its children can be pruned */
 	size_t nul;
 	if (!t->innerp) {
-		for (nul = 0U; nul < t->n && t->val[nul].v <= 0.dd; nul++);
+		for (nul = 0U; nul < t->n &&
+			     btree_val_nil_p(t->val[nul].v); nul++);
 		return nul >= t->n;
 	}
 	/* otherwise recur */
@@ -173,8 +176,60 @@ node_split(btree_t prnt, size_t idx)
 	return;
 }
 
-static bool
-leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
+
+static btree_val_t*
+leaf_get(btree_t t, btree_key_t k)
+{
+	size_t i;
+
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
+
+	if (k != t->key[i]) {
+		/* key isn't home today */
+		return NULL;
+	}
+	return &t->val[i].v;
+}
+
+static btree_val_t*
+twig_get(btree_t t, btree_key_t k)
+{
+	btree_val_t *vp;
+	btree_t c;
+	size_t i;
+
+	switch (t->descp) {
+	case 0U:
+		for (i = 0U; i < t->n && k > t->key[i]; i++);
+		break;
+	case 1U:
+		for (i = 0U; i < t->n && k < t->key[i]; i++);
+		break;
+	}
+
+	/* descent */
+	c = t->val[i].t;
+
+	if (!c->innerp) {
+		/* oh, we're in the leaves again */
+		vp = leaf_get(c, k);
+	} else {
+		/* got to go deeper, isn't it? */
+		vp = twig_get(c, k);
+	}
+	return vp;
+}
+
+
+static btree_val_t*
+leaf_add(btree_t t, btree_key_t k, bool *splitp)
 {
 	size_t nul;
 	size_t i;
@@ -193,7 +248,7 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 		goto out;
 	}
 	/* otherwise do a scan to see if we have spare items */
-	for (nul = 0U; nul < t->n && t->val[nul].v > 0.dd; nul++);
+	for (nul = 0U; nul < t->n && !btree_val_nil_p(t->val[nul].v); nul++);
 
 	if (nul > i) {
 		/* spare item is far to the right */
@@ -216,16 +271,16 @@ leaf_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 	}
 	t->n += !(nul < t->n);
 	t->key[i] = k;
-	t->val[i].v = 0.dd;
+	t->val[i].v = btree_val_nil;
 out:
-	*v = &t->val[i].v;
-	return t->n >= countof(t->key) - 1U;
+	*splitp = t->n >= countof(t->key) - 1U;
+	return &t->val[i].v;
 }
 
-static bool
-twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
+static btree_val_t*
+twig_add(btree_t t, btree_key_t k, bool *splitp)
 {
-	bool splitp;
+	btree_val_t *r;
 	btree_t c;
 	size_t i;
 
@@ -243,72 +298,18 @@ twig_add(btree_t t, KEY_T k, VAL_T *v[static 1U])
 
 	if (!c->innerp) {
 		/* oh, we're in the leaves again */
-		splitp = leaf_add(c, k, v);
+		r = leaf_add(c, k, splitp);
 	} else {
 		/* got to go deeper, isn't it? */
-		splitp = twig_add(c, k, v);
+		r = twig_add(c, k, splitp);
 	}
 
-	if (UNLIKELY(splitp)) {
+	if (UNLIKELY(*splitp)) {
 		/* C needs splitting, not again */
 		node_split(t, i);
 	}
-	return t->n >= countof(t->key) - 1U;
-}
-
-
-#include <stdio.h>
-static void
-__prnt(btree_t t, size_t lvl)
-{
-	printf("%p\tL%zu", t, lvl);
-	if (t->innerp) {
-		for (size_t i = 0U; i < t->n; i++) {
-			printf("\t%f", (double)t->key[i]);
-		}
-	} else {
-		/* leaves */
-		for (size_t i = 0U; i < t->n; i++) {
-			printf("\t%f|%f", (double)t->key[i], (double)t->val[i].v);
-		}
-	}
-	putchar('\n');
-	if (t->innerp) {
-		for (size_t i = 0U; i <= t->n; i++) {
-			__prnt(t->val[i].t, lvl + 1U);
-		}
-	}
-	return;
-}
-
-static void
-__chck(btree_t t, KEY_T thresh)
-{
-	switch (t->descp) {
-	case 0U:
-		for (size_t i = 0U; i < t->n; i++) {
-			if (t->key[i] > thresh) {
-				printf("ALARM %f > %f\n",
-				       (double)t->key[i], (double)thresh);
-			}
-		}
-		break;
-	case 1U:
-		for (size_t i = 0U; i < t->n; i++) {
-			if (t->key[i] < thresh) {
-				printf("ALARM %f < %f\n",
-				       (double)t->key[i], (double)thresh);
-			}
-		}
-		break;
-	}
-	if (!t->innerp) {
-		return;
-	}
-	for (size_t i = 0U; i < t->n; i++) {
-		__chck(t->val[i].t, t->key[i]);
-	}
-	return;
+	*splitp = t->n >= countof(t->key) - 1U;
+	return r;
 }
 
 
@@ -331,55 +332,63 @@ free_btree(btree_t t)
 			/* descend */
 			free_btree(t->val[i].t);
 		}
+	} else {
+		/* free values */
+		for (size_t i = 0U; i < t->n; i++) {
+			if (!btree_val_nil_p(t->val[i].v)) {
+				free_btree_val(t->val[i].v);
+			}
+		}
 	}
 	free(t);
 	return;
 }
 
-VAL_T
-btree_add(btree_t t, KEY_T k, VAL_T v)
+btree_val_t*
+btree_get(btree_t t, btree_key_t k)
 {
-	VAL_T *vp;
-	bool splitp;
+	btree_val_t *vp;
 
-	/* check if root has leaves */
 	if (!t->innerp) {
-		splitp = leaf_add(t, k, &vp);
+		vp = leaf_get(t, k);
 	} else {
-		splitp = twig_add(t, k, &vp);
+		vp = twig_get(t, k);
 	}
-	/* do the maths */
-	v += *vp;
-	/* be saturating */
-	v = v > 0.dd ? v : 0.dd;
-	*vp = v;
-
-	if (UNLIKELY(splitp)) {
-		/* root got split, bollocks */
-		root_split(t);
-	}
-	return v;
+	return vp;
 }
 
-VAL_T
-btree_put(btree_t t, KEY_T k, VAL_T v)
+btree_val_t*
+btree_put(btree_t t, btree_key_t k)
 {
-	VAL_T *vp, w;
+	btree_val_t *vp;
 	bool splitp;
+
+	if (UNLIKELY(t->splitp)) {
+		/* root got split, bollocks */
+		root_split(t);
+	}
 
 	/* check if root has leaves */
 	if (!t->innerp) {
-		splitp = leaf_add(t, k, &vp);
+		vp = leaf_add(t, k, &splitp);
 	} else {
-		splitp = twig_add(t, k, &vp);
+		vp = twig_add(t, k, &splitp);
 	}
-	/* we promised to return the old value */
-	w = *vp;
-	*vp = v > 0.dd ? v : 0.dd;
 
-	if (UNLIKELY(splitp)) {
-		/* root got split, bollocks */
-		root_split(t);
+	t->splitp = splitp;
+	return vp;
+}
+
+btree_val_t
+btree_rem(btree_t t, btree_key_t k)
+{
+	btree_val_t *vp, w;
+
+	if ((vp = btree_get(t, k)) != NULL) {
+		w = *vp;
+		*vp = btree_val_nil;
+	} else {
+		w = btree_val_nil;
 	}
 	return w;
 }
@@ -391,25 +400,42 @@ btree_clr(btree_t t)
 	for (; t->innerp; t = t->val->t);
 	do {
 		for (size_t i = 0U; i < t->n; i++) {
-			t->val[i].v = 0.dd;
+			t->val[i].v = btree_val_nil;
 		}
 	} while ((t = t->next));
 	return;
+}
+
+btree_val_t*
+btree_top(btree_t t, btree_key_t *k)
+{
+	/* go down them levels */
+	for (; t->innerp; t = t->val->t);
+	do {
+		for (size_t i = 0U; i < t->n; i++) {
+			if (LIKELY(!btree_val_nil_p(t->val[i].v))) {
+				/* good one */
+				*k = t->key[i];
+				return &t->val[i].v;
+			}
+		}
+	} while ((t = t->next));
+	return NULL;
 }
 
 bool
 btree_iter_next(btree_iter_t *iter)
 {
 	if (UNLIKELY(iter->t == NULL)) {
-		return false;
+		goto inv;
 	}
 	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
 	do {
 		for (size_t i = iter->i; i < iter->t->n; i++) {
-			if (LIKELY(iter->t->val[i].v > 0.dd)) {
+			if (LIKELY(!btree_val_nil_p(iter->t->val[i].v))) {
 				/* good one */
 				iter->k = iter->t->key[i];
-				iter->v = iter->t->val[i].v;
+				iter->v = &iter->t->val[i].v;
 				iter->i = i + 1U;
 				return true;
 			}
@@ -417,28 +443,10 @@ btree_iter_next(btree_iter_t *iter)
 		/* reset index */
 		iter->i = 0U;
 	} while ((iter->t = iter->t->next));
+inv:
+	/* invalidate */
+	iter->v = NULL;
 	return false;
-}
-
-
-/* for debugging purposes */
-void
-btree_prnt(btree_t t)
-{
-	__prnt(t, 0U);
-	return;
-}
-
-void
-btree_chck(btree_t t)
-{
-	if (!t->innerp) {
-		return;
-	}
-	for (size_t i = 0U; i < t->n; i++) {
-		__chck(t->val[i].t, t->key[i]);
-	}
-	return;
 }
 
 /* btree.c ends here */

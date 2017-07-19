@@ -60,8 +60,9 @@
 #define HX_CATCHALL	((hx_t)-1ULL)
 
 /* command line params */
-static tv_t intv = 1U * MSECS;
+static tv_t intv = 1U * NSECS;
 static tv_t offs = 0U * MSECS;
+static tv_t inva;
 static FILE *sfil;
 
 /* output mode */
@@ -94,6 +95,65 @@ memncpy(char *restrict tgt, const char *src, size_t zrc)
 	return zrc;
 }
 
+static tv_t
+sufstrtotv(const char *str)
+{
+/* read suffix string and convert to multiple of NSECS */
+	tv_t r;
+
+	switch (*str) {
+	case '\0':
+		/* leave this one neutral */
+		str--;
+		r = 0;
+		break;
+	case 's':
+	case 'S':
+		/* user wants seconds, do they not? */
+		r = NSECS;
+		break;
+	case 'm':
+	case 'M':
+		switch (*++str) {
+		case '\0':
+			/* they want minutes, oh oh */
+			str--;
+			r = 60UL * NSECS;
+			break;
+		case 's':
+		case 'S':
+			/* milliseconds it is then */
+			r = USECS;
+			break;
+		default:
+			goto invalid;
+		}
+		break;
+	case 'h':
+	case 'H':
+		/* them hours we use */
+		r = 60UL * 60UL * MSECS;
+		break;
+	case 'u':
+	case 'U':
+		/* micros */
+		r = MSECS;
+		break;
+	case 'n':
+	case 'N':
+		/* nanos stay nanos */
+		r = 1;
+		break;
+	default:
+		goto invalid;
+	}
+	if (UNLIKELY(*++str != '\0')) {
+	invalid:
+		return NANTV;
+	}
+	return r;
+}
+
 
 static tv_t metr;
 static tv_t(*next)(tv_t);
@@ -101,6 +161,12 @@ static tv_t(*next)(tv_t);
 static tv_t
 _next_intv(tv_t newm)
 {
+	newm--;
+	newm -= offs;
+	newm /= intv;
+	newm++;
+	newm *= intv;
+	newm += offs;
 	return newm;
 }
 
@@ -111,14 +177,14 @@ _next_stmp(tv_t newm)
 	static size_t llen;
 
 	if (getline(&line, &llen, sfil) > 0 &&
-	    (newm = strtotv(line, NULL)) != NOT_A_TIME) {
+	    (newm = strtotv(line, NULL)) != NANTV) {
 		return newm - 1ULL;
 	}
 	/* otherwise it's the end of the road */
 	free(line);
 	line = NULL;
 	llen = 0UL;
-	return NOT_A_TIME;
+	return NANTV;
 }
 
 
@@ -133,7 +199,7 @@ snap1(book_t bk, const char *cont)
 	b = book_top(bk, SIDE_BID);
 	a = book_top(bk, SIDE_ASK);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -165,7 +231,7 @@ snap2(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len, prfz;
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -176,7 +242,7 @@ snap2(book_t bk, const char *cont)
 	buf[len++] = '\t';
 	prfz = len;
 
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)};
+	for (book_iter_t i = book_iter(bk, SIDE_BID);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -188,7 +254,7 @@ snap2(book_t bk, const char *cont)
 
 	/* go to asks */
 	buf[prfz - 3U] = 'A';
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)};
+	for (book_iter_t i = book_iter(bk, SIDE_ASK);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -306,7 +372,7 @@ snap3(book_t bk, const char *cont)
 		memset(snap3_aux + olz, 0, (zbk - olz) * sizeof(*snap3_aux));
 	}
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -430,7 +496,7 @@ snapn(book_t bk, const char *cont)
 	bn = book_tops(b, B, bk, SIDE_BID, ntop);
 	an = book_tops(a, A, bk, SIDE_ASK, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -476,7 +542,7 @@ snapc(book_t bk, const char *cont)
 	b = book_ctop(bk, SIDE_BID, cqty);
 	a = book_ctop(bk, SIDE_ASK, cqty);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -525,7 +591,7 @@ snapcn(book_t bk, const char *cont)
 	bn = book_ctops(b, B, bk, SIDE_BID, cqty, ntop);
 	an = book_ctops(a, A, bk, SIDE_ASK, cqty, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -572,7 +638,7 @@ snapv(book_t bk, const char *cont)
 	b = book_vtop(bk, SIDE_BID, cqty);
 	a = book_vtop(bk, SIDE_ASK, cqty);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -621,7 +687,7 @@ snapvn(book_t bk, const char *cont)
 	bn = book_vtops(b, B, bk, SIDE_BID, cqty, ntop);
 	an = book_vtops(a, A, bk, SIDE_ASK, cqty, ntop);
 
-	len = tvtostr(buf, sizeof(buf), (metr + 1ULL) * intv + offs);
+	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
 		buf[len++] = '\t';
 		len += memncpy(buf + len, cont, strlen(cont));
@@ -679,6 +745,7 @@ main(int argc, char *argv[])
 	}
 
 	if (argi->interval_arg) {
+		tv_t mult;
 		char *on;
 
 		if (!(intv = strtoull(argi->interval_arg, &on, 10))) {
@@ -687,103 +754,30 @@ Error: cannot read interval argument, must be positive.");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
-		switch (*on) {
-		case '\0':
-		case 's':
-		case 'S':
-			/* user wants seconds, do they not? */
-			intv *= NSECS;
-			break;
-		case 'm':
-		case 'M':
-			switch (*++on) {
-			case '\0':
-				/* they want minutes, oh oh */
-				intv *= 60UL * NSECS;
-				break;
-			case 's':
-			case 'S':
-				/* milliseconds it is then */
-				intv *= USECS;
-				break;
-			default:
-				goto invalid_intv;
-			}
-			break;
-		case 'h':
-		case 'H':
-			/* them hours we use */
-			intv *= 60UL * 60UL * MSECS;
-			break;
-		case 'u':
-		case 'U':
-			/* micros */
-			intv *= MSECS;
-			break;
-		case 'n':
-		case 'N':
-			/* nanos stay nanos */
-			intv = intv;
-			break;
-		default:
-		invalid_intv:
+		if (UNLIKELY((mult = sufstrtotv(on)) == NANTV)) {
 			errno = 0, serror("\
-Error: invalid suffix in interval, use `ms', `s', `m', or `h'");
+Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
+		intv *= mult ?: NSECS;
 	}
 
 	if (argi->offset_arg) {
 		char *on;
 		long long int o;
+		tv_t mult;
 
-		o = strtoul(argi->offset_arg, &on, 10);
-
-		switch (*on) {
-		case '\0':
-		case 's':
-		case 'S':
-			/* user wants seconds, do they not? */
-			o *= NSECS;
-			break;
-		case 'm':
-		case 'M':
-			switch (*++on) {
-			case '\0':
-				/* they want minutes, oh oh */
-				o *= 60U * NSECS;
-				break;
-			case 's':
-			case 'S':
-				/* milliseconds it is then */
-				o *= USECS;
-				break;
-			default:
-				goto invalid_offs;
-			}
-			break;
-		case 'h':
-		case 'H':
-			/* them hours we use */
-			o *= 60U * 60U * NSECS;
-			break;
-		case 'u':
-		case 'U':
-			o *= MSECS;
-			break;
-		case 'n':
-		case 'N':
-			/* very good */
-			o = o;
-			break;
-		default:
-		invalid_offs:
+		o = strtol(argi->offset_arg, &on, 10);
+		mult = sufstrtotv(on);
+		if (o && mult == NANTV) {
 			errno = 0, serror("\
-Error: invalid suffix in offset, use `ms', `s', `m', or `h'");
+Error: invalid suffix in offset, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
+		/* produce offset in NSECS */
+		o *= mult ?: NSECS;
 
 		/* canonicalise */
 		if (argi->stamps_arg) {
@@ -809,6 +803,21 @@ Error: cannot open stamps file");
 
 	/* use a next routine du jour */
 	next = !argi->stamps_arg ? _next_intv : _next_stmp;
+
+	if (argi->invalidate_arg) {
+		char *on;
+		tv_t x;
+
+		inva = strtoull(argi->invalidate_arg, &on, 10);
+		if (UNLIKELY((x = sufstrtotv(on)) == NANTV)) {
+			errno = 0, serror("\
+Error: invalid suffix to invalidate, use `ns', `us', `ms', `s', `m', or `h'");
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+		/* factorise inva, use periods as default */
+		inva *= x ?: intv;
+	}
 
 	snap = snap2;
 	if (argi->dash1_flag) {
@@ -919,7 +928,7 @@ Error: cannot read consolidated quantity");
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
-			} else if (q.t == NOT_A_TIME) {
+			} else if (q.q.t == NANTV) {
 				/* invalid quote line */
 				continue;
 			}
@@ -945,32 +954,32 @@ Error: cannot read consolidated quantity");
 				book = realloc(book, zbook * sizeof(*book));
 			}
 			/* initialise the book */
-			cont[nbook] = strndup(q.ins, q.inz),
-				conx[nbook] = hx,
-				book[nbook] = make_book(),
-				nbook++;
+			cont[nbook] = strndup(q.ins, q.inz);
+			conx[nbook] = hx;
+			book[nbook] = make_book();
+			nbook++;
 		snap:
-			/* align metronome to interval */
-			q.t--;
-			q.t -= offs;
-			q.t /= intv;
-
-			metr = metr ?: next(q.t);
-
 			/* do we need to shoot a snap? */
-			for (; UNLIKELY(q.t > metr); metr = next(q.t)) {
+			if (LIKELY(q.q.t <= metr)) {
+				goto badd;
+			}
+			if (LIKELY(metr)) {
 				/* materialise snapshot */
 				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+					book_exp(book[ibk], inva ? metr : 0ULL);
 					snap(book[ibk], cont[ibk]);
 				}
 			}
-
+			/* set new metronome for next time and one for expiry */
+			metr = next(q.q.t);
+		badd:
 			/* add to book */
+			q.q.t += inva;
 			q.q = book_add(book[k], q.q);
 		}
 		free(line);
 		/* final snapshot */
-		for (ibk = 0U; metr < NOT_A_TIME && ibk < nbook + nctch; ibk++) {
+		for (ibk = 0U; metr < NANTV && ibk < nbook + nctch; ibk++) {
 			snap(book[ibk], cont[ibk]);
 		}
 	}

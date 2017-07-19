@@ -30,14 +30,6 @@ AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 TESTS_ENVIRONMENT = root=$(top_srcdir)
 
 
-check_PROGRAMS += btree_01
-TESTS += btree_01.clit
-btree_01_LDADD = $(books_LIBS)
-
-check_PROGRAMS += btree_02
-TESTS += btree_02.clit
-btree_02_LDADD = $(books_LIBS)
-
 TESTS += book2book_01.clit
 TESTS += book2book_02.clit
 TESTS += book2book_03.clit
@@ -69,6 +61,8 @@ TESTS += booksnap_03.clit
 TESTS += booksnap_04.clit
 TESTS += booksnap_05.clit
 TESTS += booksnap_06.clit
+TESTS += booksnap_07.clit
+TESTS += booksnap_08.clit
 
 EXTRA_DIST += xmpl_01.b
 EXTRA_DIST += xmpl_02.b
@@ -79,5 +73,6 @@ EXTRA_DIST += xmpl_06.b
 EXTRA_DIST += xmpl_07.b
 EXTRA_DIST += xmpl_08.b
 EXTRA_DIST += xmpl_09.b
+EXTRA_DIST += xmpl_10.b
 
 ## Makefile.am ends here
