@@ -137,11 +137,13 @@ sufstrtotv(const char *str)
 	case 'u':
 	case 'U':
 		/* micros */
+		str++;
 		r = MSECS;
 		break;
 	case 'n':
 	case 'N':
 		/* nanos stay nanos */
+		str++;
 		r = 1;
 		break;
 	default:
