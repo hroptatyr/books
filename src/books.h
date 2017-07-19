@@ -105,10 +105,8 @@ typedef struct {
 	void *b;
 	size_t i;
 	px_t p;
-	union {
-		qx_t q;
-		void *v;
-	};
+	qx_t q;
+	tv_t t;
 } book_iter_t;
 
 #define BIDX(x)		((x) - 1U)
@@ -127,6 +125,10 @@ extern quo_t book_add(book_t, quo_t);
 /**
  * Clear the entire book. */
 extern void book_clr(book_t);
+
+/**
+ * Expunge all quotes older than T. */
+extern void book_exp(book_t, tv_t);
 
 /**
  * Return the top-most quote of BOOK'S SIDE. */
