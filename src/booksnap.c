@@ -94,6 +94,65 @@ memncpy(char *restrict tgt, const char *src, size_t zrc)
 	return zrc;
 }
 
+static tv_t
+sufstrtotv(const char *str)
+{
+/* read suffix string and convert to multiple of NSECS */
+	tv_t r;
+
+	switch (*str) {
+	case '\0':
+		/* leave this one neutral */
+		str--;
+		r = 0;
+		break;
+	case 's':
+	case 'S':
+		/* user wants seconds, do they not? */
+		r = NSECS;
+		break;
+	case 'm':
+	case 'M':
+		switch (*++str) {
+		case '\0':
+			/* they want minutes, oh oh */
+			str--;
+			r = 60UL * NSECS;
+			break;
+		case 's':
+		case 'S':
+			/* milliseconds it is then */
+			r = USECS;
+			break;
+		default:
+			goto invalid;
+		}
+		break;
+	case 'h':
+	case 'H':
+		/* them hours we use */
+		r = 60UL * 60UL * MSECS;
+		break;
+	case 'u':
+	case 'U':
+		/* micros */
+		r = MSECS;
+		break;
+	case 'n':
+	case 'N':
+		/* nanos stay nanos */
+		r = 1;
+		break;
+	default:
+		goto invalid;
+	}
+	if (UNLIKELY(*++str != '\0')) {
+	invalid:
+		return NOT_A_TIME;
+	}
+	return r;
+}
+
 
 static tv_t metr;
 static tv_t(*next)(tv_t);
@@ -679,6 +738,7 @@ main(int argc, char *argv[])
 	}
 
 	if (argi->interval_arg) {
+		tv_t mult;
 		char *on;
 
 		if (!(intv = strtoull(argi->interval_arg, &on, 10))) {
@@ -687,103 +747,30 @@ Error: cannot read interval argument, must be positive.");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
-		switch (*on) {
-		case '\0':
-		case 's':
-		case 'S':
-			/* user wants seconds, do they not? */
-			intv *= NSECS;
-			break;
-		case 'm':
-		case 'M':
-			switch (*++on) {
-			case '\0':
-				/* they want minutes, oh oh */
-				intv *= 60UL * NSECS;
-				break;
-			case 's':
-			case 'S':
-				/* milliseconds it is then */
-				intv *= USECS;
-				break;
-			default:
-				goto invalid_intv;
-			}
-			break;
-		case 'h':
-		case 'H':
-			/* them hours we use */
-			intv *= 60UL * 60UL * MSECS;
-			break;
-		case 'u':
-		case 'U':
-			/* micros */
-			intv *= MSECS;
-			break;
-		case 'n':
-		case 'N':
-			/* nanos stay nanos */
-			intv = intv;
-			break;
-		default:
-		invalid_intv:
+		if (UNLIKELY((mult = sufstrtotv(on)) == NOT_A_TIME)) {
 			errno = 0, serror("\
-Error: invalid suffix in interval, use `ms', `s', `m', or `h'");
+Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
+		intv *= mult ?: NSECS;
 	}
 
 	if (argi->offset_arg) {
 		char *on;
 		long long int o;
+		tv_t mult;
 
-		o = strtoul(argi->offset_arg, &on, 10);
-
-		switch (*on) {
-		case '\0':
-		case 's':
-		case 'S':
-			/* user wants seconds, do they not? */
-			o *= NSECS;
-			break;
-		case 'm':
-		case 'M':
-			switch (*++on) {
-			case '\0':
-				/* they want minutes, oh oh */
-				o *= 60U * NSECS;
-				break;
-			case 's':
-			case 'S':
-				/* milliseconds it is then */
-				o *= USECS;
-				break;
-			default:
-				goto invalid_offs;
-			}
-			break;
-		case 'h':
-		case 'H':
-			/* them hours we use */
-			o *= 60U * 60U * NSECS;
-			break;
-		case 'u':
-		case 'U':
-			o *= MSECS;
-			break;
-		case 'n':
-		case 'N':
-			/* very good */
-			o = o;
-			break;
-		default:
-		invalid_offs:
+		o = strtol(argi->offset_arg, &on, 10);
+		mult = sufstrtotv(on);
+		if (o && mult == NOT_A_TIME) {
 			errno = 0, serror("\
-Error: invalid suffix in offset, use `ms', `s', `m', or `h'");
+Error: invalid suffix in offset, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
+		/* produce offset in NSECS */
+		o *= mult ?: NSECS;
 
 		/* canonicalise */
 		if (argi->stamps_arg) {
