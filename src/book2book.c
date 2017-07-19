@@ -79,7 +79,7 @@ typedef struct {
 #define HX_CATCHALL	((hx_t)-1ULL)
 
 /* output mode */
-static void(*prq)(xbook_t*, quo_t);
+static void(*prq)(xbook_t*, quo_t, quo_t);
 /* for N-books */
 static size_t ntop;
 /* consolidation, either quantity or value (price*quantity) */
@@ -134,7 +134,7 @@ static const char *prfx;
 static size_t prfz;
 
 static void
-prq1(xbook_t *xb, quo_t UNUSED(q))
+prq1(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to 1-books, aligned */
 	quo_t b, a;
@@ -180,7 +180,7 @@ prq1(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prq2(xbook_t *UNUSED(xb), quo_t q)
+prq2(xbook_t *UNUSED(xb), quo_t q, quo_t UNUSED(o))
 {
 /* print 2-books */
 	char buf[256U];
@@ -200,7 +200,7 @@ prq2(xbook_t *UNUSED(xb), quo_t q)
 }
 
 static void
-prq3(xbook_t *UNUSED(xb), quo_t q)
+prq3(xbook_t *UNUSED(xb), quo_t q, quo_t o)
 {
 /* convert to 3-books */
 	char buf[256U];
@@ -211,7 +211,7 @@ prq3(xbook_t *UNUSED(xb), quo_t q)
 	buf[len++] = '\t';
 	len += pxtostr(buf + len, sizeof(buf) - len, q.p);
 	buf[len++] = '\t';
-	len += qxtostr(buf + len, sizeof(buf) - len, q.q - q.o);
+	len += qxtostr(buf + len, sizeof(buf) - len, q.q - o.q);
 	buf[len++] = '\n';
 
 	fwrite(prfx, 1, prfz, stdout);
@@ -220,7 +220,7 @@ prq3(xbook_t *UNUSED(xb), quo_t q)
 }
 
 static void
-prqn(xbook_t *xb, quo_t UNUSED(q))
+prqn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -286,7 +286,7 @@ prqn(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prqc(xbook_t *xb, quo_t UNUSED(q))
+prqc(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to consolidated 1-books, aligned */
 	quo_t bc, ac;
@@ -329,7 +329,7 @@ prqc(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prqcn(xbook_t *xb, quo_t UNUSED(q))
+prqcn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -391,7 +391,7 @@ prqcn(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prqv(xbook_t *xb, quo_t UNUSED(q))
+prqv(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to value-consolidated 1-books, aligned */
 	quo_t bc, ac;
@@ -434,7 +434,7 @@ prqv(xbook_t *xb, quo_t UNUSED(q))
 }
 
 static void
-prqvn(xbook_t *xb, quo_t UNUSED(q))
+prqvn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -611,6 +611,7 @@ Error: cannot read consolidated quantity");
 		for (ssize_t nrd; (nrd = getline(&line, &llen, stdin)) > 0;) {
 			xquo_t q;
 			size_t k;
+			quo_t o;
 			hx_t hx;
 
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
@@ -656,8 +657,8 @@ Error: cannot read consolidated quantity");
 						.p = i.p,
 						.q = 0.dd
 					};
-					r = book_add(book[k].book, r);
-					prq(book + k, r);
+					o = book_add(book[k].book, r);
+					prq(book + k, r, o);
 				}
 			} else if (UNLIKELY(q.q.s == SIDE_CLR)) {
 				if (UNLIKELY(prq == prq2 || prq == prq3)) {
@@ -672,8 +673,8 @@ Error: cannot read consolidated quantity");
 							.p = i.p,
 							.q = 0.dd,
 						};
-						r = book_add(book[k].book, r);
-						prq(book + k, r);
+						o = book_add(book[k].book, r);
+						prq(book + k, r, o);
 					}
 
 					i = book_iter(book[k].book, SIDE_ASK);
@@ -683,20 +684,20 @@ Error: cannot read consolidated quantity");
 							.p = i.p,
 							.q = 0.dd,
 						};
-						r = book_add(book[k].book, r);
-						prq(book + k, r);
+						o = book_add(book[k].book, r);
+						prq(book + k, r, o);
 					}
 					continue;
 				}
 			}
 			/* add to book */
-			q.q = book_add(book[k].book, q.q);
-			if (LIKELY(q.q.o == q.q.q)) {
+			o = book_add(book[k].book, q.q);
+			if (LIKELY(o.q == q.q.q)) {
 				/* nothing changed */
 				continue;
 			}
 			/* printx */
-			prq(book + k, q.q);
+			prq(book + k, q.q, o);
 		}
 		free(line);
 	}

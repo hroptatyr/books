@@ -78,16 +78,18 @@ book_add(book_t b, quo_t q)
 		/* proceed with level treatment */
 		switch (q.f) {
 			btree_val_t *tmp;
+			qx_t o;
 		case LVL_3:
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
-			q.q += q.o;
-			q.q = tmp->q = q.q >= 0.dd ? q.q : 0.dd;
+			q.q += o = tmp->q;
+			tmp->q = q.q >= 0.dd ? q.q : 0.dd;
+			q.q = o;
 			break;
 		case LVL_2:
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
+			o = tmp->q;
 			tmp->q = q.q;
+			q.q = o;
 			break;
 		case LVL_1:
 			if (UNLIKELY(q.q < 0.dd)) {
@@ -102,8 +104,9 @@ book_add(book_t b, quo_t q)
 			 * we put the value first so it's guaranteed
 			 * to be in there */
 			tmp = btree_put(b.BOOK(q.s), q.p);
-			q.o = tmp->q;
+			o = tmp->q;
 			tmp->q = q.q;
+			q.q = o;
 			/* now iter away anything that isn't our quote */
 			for (btree_iter_t i = {.t = b.BOOK(q.s)};
 			     btree_iter_next(&i) && i.k != q.p;) {

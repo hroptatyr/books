@@ -39,21 +39,13 @@
 #include <unistd.h>
 #include "books.h"
 
-#define NSECS	(1000000000)
-#define USECS	(1000000)
-#define MSECS	(1000)
-
-typedef long long unsigned int tv_t;
-#define NOT_A_TIME	((tv_t)-1ULL)
-
 typedef struct {
-	tv_t t;
 	quo_t q;
 	const char *ins;
 	size_t inz;
 } xquo_t;
 
-#define NOT_A_XQUO	((xquo_t){NOT_A_TIME, NOT_A_QUO})
+#define NOT_A_XQUO	((xquo_t){NOT_A_QUO})
 #define NOT_A_XQUO_P(x)	(NOT_A_QUO_P((x).q))
 
 

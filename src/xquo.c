@@ -73,17 +73,17 @@ strtotv(const char *ln, char **endptr)
 	/* time value up first */
 	with (long unsigned int s, x) {
 		if (UNLIKELY(!(s = strtoul(ln, &on, 10)) || on == NULL)) {
-			r = NOT_A_TIME;
+			r = NANTV;
 			goto out;
 		} else if (*on == '.') {
 			char *moron;
 
 			x = strtoul(++on, &moron, 10);
 			if (UNLIKELY(moron - on > 9U)) {
-				return NOT_A_TIME;
+				return NANTV;
 			} else if ((moron - on) % 3U) {
 				/* huh? */
-				return NOT_A_TIME;
+				return NANTV;
 			}
 			switch (moron - on) {
 			default:
@@ -144,7 +144,7 @@ read_xquo(const char *line, size_t llen)
 	xquo_t q;
 
 	/* get timestamp */
-	q.t = strtotv(line, NULL);
+	q.q.t = strtotv(line, NULL);
 
 	/* get qty */
 	if (UNLIKELY((lp = memrchr(line, '\t', llen)) == NULL)) {
