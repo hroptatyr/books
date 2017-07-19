@@ -31,6 +31,7 @@ libbooks_a_SOURCES =
 libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_SOURCES += books.c books.h
 libbooks_a_SOURCES += nifty.h
+libbooks_a_SOURCES += btree_val.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 libbooks_a_LIBADD = $(dfp754_LIBS)
@@ -39,6 +40,7 @@ libbooks_a_LIBADD += libdfp.a
 pkginclude_HEADERS =
 pkginclude_HEADERS += books.h
 pkginclude_HEADERS += btree.h
+pkginclude_HEADERS += btree_val.h
 
 bin_PROGRAMS += book2book
 book2book_SOURCES = book2book.c book2book.yuck
