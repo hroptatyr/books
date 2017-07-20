@@ -77,6 +77,7 @@ EXTRA_DIST += xmpl_07.b
 EXTRA_DIST += xmpl_08.b
 EXTRA_DIST += xmpl_09.b
 EXTRA_DIST += xmpl_10.b
+EXTRA_DIST += xmpl_11.b
 EXTRA_DIST += xmpl_01.s
 
 ## Makefile.am ends here
