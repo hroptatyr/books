@@ -204,10 +204,6 @@ snap1(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	b = book_top(bk, SIDE_BID);
 	a = book_top(bk, SIDE_ASK);
 
@@ -242,10 +238,6 @@ snap2(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len, prfz;
-
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -379,9 +371,6 @@ snap3(book_t bk, const char *cont)
 	const px_t *pp;
 	const qx_t *qp;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 	if (UNLIKELY(ibk >= zbk)) {
 		/* resize */
 		const size_t olz = zbk;
@@ -507,10 +496,6 @@ snapn(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len, prfz;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
 	memset(a, -1, sizeof(a));
@@ -562,10 +547,6 @@ snapc(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	b = book_ctop(bk, SIDE_BID, cqty);
 	a = book_ctop(bk, SIDE_ASK, cqty);
 
@@ -609,10 +590,6 @@ snapcn(book_t bk, const char *cont)
 	size_t bn, an;
 	char buf[256U];
 	size_t len, prfz;
-
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
@@ -666,10 +643,6 @@ snapv(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
-	if (UNLIKELY(!metr)) {
-		return;
-	}
-
 	b = book_vtop(bk, SIDE_BID, cqty);
 	a = book_vtop(bk, SIDE_ASK, cqty);
 
@@ -713,10 +686,6 @@ snapvn(book_t bk, const char *cont)
 	size_t bn, an;
 	char buf[256U];
 	size_t len, prfz;
-
-	if (UNLIKELY(!metr)) {
-		return;
-	}
 
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
@@ -970,6 +939,8 @@ Error: cannot read consolidated quantity");
 			} else if (q.q.t == NANTV) {
 				/* invalid quote line */
 				continue;
+			} else if (UNLIKELY(!metr)) {
+				metr = next(q.q.t);
 			}
 			/* check if we've got him in our books */
 			if (nbook || zbook) {
