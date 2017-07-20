@@ -940,7 +940,7 @@ Error: cannot read consolidated quantity");
 				/* invalid quote line */
 				continue;
 			} else if (UNLIKELY(!metr)) {
-				metr = next(q.q.t);
+				while ((metr = next(q.q.t)) < q.q.t);
 			}
 			/* check if we've got him in our books */
 			if (nbook || zbook) {
