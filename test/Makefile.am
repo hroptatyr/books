@@ -65,6 +65,7 @@ TESTS += booksnap_07.clit
 TESTS += booksnap_08.clit
 TESTS += booksnap_09.clit
 TESTS += booksnap_10.clit
+TESTS += booksnap_11.clit
 
 EXTRA_DIST += xmpl_01.b
 EXTRA_DIST += xmpl_02.b
