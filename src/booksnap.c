@@ -163,6 +163,12 @@ static tv_t(*next)(tv_t);
 static tv_t
 _next_intv(tv_t newm)
 {
+/* return newer metronome */
+	static tv_t oldm;
+	if (inva && metr && metr + inva > oldm) {
+		oldm = newm;
+		newm = metr + inva;
+	}
 	newm--;
 	newm -= offs;
 	newm /= intv;
@@ -180,7 +186,7 @@ _next_stmp(tv_t newm)
 
 	if (getline(&line, &llen, sfil) > 0 &&
 	    (newm = strtotv(line, NULL)) != NANTV) {
-		return newm - 1ULL;
+		return newm;
 	}
 	/* otherwise it's the end of the road */
 	free(line);
@@ -197,6 +203,10 @@ snap1(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len;
 	quo_t b, a;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
 
 	b = book_top(bk, SIDE_BID);
 	a = book_top(bk, SIDE_ASK);
@@ -232,6 +242,10 @@ snap2(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len, prfz;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -365,6 +379,9 @@ snap3(book_t bk, const char *cont)
 	const px_t *pp;
 	const qx_t *qp;
 
+	if (UNLIKELY(!metr)) {
+		return;
+	}
 	if (UNLIKELY(ibk >= zbk)) {
 		/* resize */
 		const size_t olz = zbk;
@@ -490,6 +507,10 @@ snapn(book_t bk, const char *cont)
 	char buf[256U];
 	size_t len, prfz;
 
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
 	memset(a, -1, sizeof(a));
@@ -541,6 +562,10 @@ snapc(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
 	b = book_ctop(bk, SIDE_BID, cqty);
 	a = book_ctop(bk, SIDE_ASK, cqty);
 
@@ -584,6 +609,10 @@ snapcn(book_t bk, const char *cont)
 	size_t bn, an;
 	char buf[256U];
 	size_t len, prfz;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
 
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
@@ -637,6 +666,10 @@ snapv(book_t bk, const char *cont)
 	size_t len;
 	quo_t b, a;
 
+	if (UNLIKELY(!metr)) {
+		return;
+	}
+
 	b = book_vtop(bk, SIDE_BID, cqty);
 	a = book_vtop(bk, SIDE_ASK, cqty);
 
@@ -680,6 +713,10 @@ snapvn(book_t bk, const char *cont)
 	size_t bn, an;
 	char buf[256U];
 	size_t len, prfz;
+
+	if (UNLIKELY(!metr)) {
+		return;
+	}
 
 	memset(b, -1, sizeof(b));
 	memset(B, -1, sizeof(B));
@@ -965,15 +1002,13 @@ Error: cannot read consolidated quantity");
 			if (LIKELY(q.q.t <= metr)) {
 				goto badd;
 			}
-			if (LIKELY(metr)) {
+			do {
 				/* materialise snapshot */
 				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
 					book_exp(book[ibk], inva ? metr : 0ULL);
 					snap(book[ibk], cont[ibk]);
 				}
-			}
-			/* set new metronome for next time and one for expiry */
-			metr = next(q.q.t);
+			} while ((metr = next(q.q.t)) < q.q.t);
 		badd:
 			/* add to book */
 			q.q.t += inva;
