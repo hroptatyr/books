@@ -987,9 +987,11 @@ Error: cannot read consolidated quantity");
 		}
 		free(line);
 		/* final snapshot */
-		for (ibk = 0U; metr < NANTV && ibk < nbook + nctch; ibk++) {
-			book_exp(book[ibk], inva ? metr : 0ULL);
-			snap(book[ibk], cont[ibk]);
+		if (metr < NANTV) {
+			for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+				book_exp(book[ibk], inva ? metr : 0ULL);
+				snap(book[ibk], cont[ibk]);
+			}
 		}
 	}
 
