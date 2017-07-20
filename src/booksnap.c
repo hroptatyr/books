@@ -163,6 +163,12 @@ static tv_t(*next)(tv_t);
 static tv_t
 _next_intv(tv_t newm)
 {
+/* return newer metronome */
+	static tv_t oldm;
+	if (inva && metr && metr + inva > oldm) {
+		oldm = newm;
+		newm = metr + inva;
+	}
 	newm--;
 	newm -= offs;
 	newm /= intv;
@@ -180,7 +186,7 @@ _next_stmp(tv_t newm)
 
 	if (getline(&line, &llen, sfil) > 0 &&
 	    (newm = strtotv(line, NULL)) != NANTV) {
-		return newm - 1ULL;
+		return newm;
 	}
 	/* otherwise it's the end of the road */
 	free(line);
@@ -933,6 +939,8 @@ Error: cannot read consolidated quantity");
 			} else if (q.q.t == NANTV) {
 				/* invalid quote line */
 				continue;
+			} else if (UNLIKELY(!metr)) {
+				while ((metr = next(q.q.t)) < q.q.t);
 			}
 			/* check if we've got him in our books */
 			if (nbook || zbook) {
@@ -965,15 +973,13 @@ Error: cannot read consolidated quantity");
 			if (LIKELY(q.q.t <= metr)) {
 				goto badd;
 			}
-			if (LIKELY(metr)) {
+			do {
 				/* materialise snapshot */
 				for (ibk = 0U; ibk < nbook + nctch; ibk++) {
 					book_exp(book[ibk], inva ? metr : 0ULL);
 					snap(book[ibk], cont[ibk]);
 				}
-			}
-			/* set new metronome for next time and one for expiry */
-			metr = next(q.q.t);
+			} while ((metr = next(q.q.t)) < q.q.t);
 		badd:
 			/* add to book */
 			q.q.t += inva;
@@ -981,8 +987,11 @@ Error: cannot read consolidated quantity");
 		}
 		free(line);
 		/* final snapshot */
-		for (ibk = 0U; metr < NANTV && ibk < nbook + nctch; ibk++) {
-			snap(book[ibk], cont[ibk]);
+		if (metr < NANTV) {
+			for (ibk = 0U; ibk < nbook + nctch; ibk++) {
+				book_exp(book[ibk], inva ? metr : 0ULL);
+				snap(book[ibk], cont[ibk]);
+			}
 		}
 	}
 
