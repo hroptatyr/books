@@ -165,7 +165,7 @@ _next_intv(tv_t newm)
 {
 /* return newer metronome */
 	static tv_t oldm;
-	if (inva && metr && metr + inva > oldm) {
+	if (inva && metr && metr + inva > oldm && metr + inva < newm) {
 		oldm = newm;
 		newm = metr + inva;
 	}
