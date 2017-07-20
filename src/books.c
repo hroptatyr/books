@@ -171,12 +171,12 @@ book_exp(book_t b, tv_t t)
 	}
 	/* otherwise */
 	for (btree_iter_t i = {b.BOOK(SIDE_ASK)}; btree_iter_next(&i);) {
-		if (i.v->t < t) {
+		if (i.v->t <= t) {
 			*i.v = btree_val_nil;
 		}
 	}
 	for (btree_iter_t i = {b.BOOK(SIDE_BID)}; btree_iter_next(&i);) {
-		if (i.v->t < t) {
+		if (i.v->t <= t) {
 			*i.v = btree_val_nil;
 		}
 	}
