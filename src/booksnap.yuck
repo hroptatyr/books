@@ -31,6 +31,9 @@ decrements if QUANTITY is negative) to a price level.
                         's', 'm', 'h' to denote nano/micro/milliseconds,
                         seconds, minutes, hours respectively.
   -S, --stamps=FILE     Shoot snaps at times taken from FILE.
+                        Stamps with no data support will be omitted,
+                        i.e. FILE can contain timestamps from the
+                        future or the distant past.
   -I, --instr=INSTR...  Filter for occurrences of INSTR.
   -1                    Output top-level book.
   -2                    Output level-2 book.
