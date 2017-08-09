@@ -262,7 +262,6 @@ snap2(book_t bk, const char *cont)
 
 	/* go to asks */
 	buf[prfz - 3U] = 'A';
-	len = prfz;
 	for (book_iter_t i = book_iter(bk, SIDE_ASK);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
@@ -442,7 +441,6 @@ snap3(book_t bk, const char *cont)
 	qp = snap3_aux[ibk].A;
 	bn = snap3_aux[ibk].an;
 	bi = 0U;
-	len = prfz;
 	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)};
 	     book_iter_next(&i); len = prfz) {
 		px_t p;
