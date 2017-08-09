@@ -234,6 +234,50 @@ snap1(book_t bk, const char *cont)
 }
 
 static void
+snap12(book_t bk, const char *cont)
+{
+/* like snap2 but for top-level only */
+	char buf[256U];
+	size_t len, prfz;
+	quo_t q;
+
+	len = tvtostr(buf, sizeof(buf), metr);
+	if (LIKELY(cont != NULL)) {
+		buf[len++] = '\t';
+		len += memncpy(buf + len, cont, strlen(cont));
+	}
+	buf[len++] = '\t';
+	buf[len++] = 'B';
+	buf[len++] = '1';
+	buf[len++] = '\t';
+	prfz = len;
+
+	q = book_top(bk, SIDE_BID);
+	if (q.q > 0.dd) {
+		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, q.q);
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+		len = prfz;
+	}
+
+	/* go to asks */
+	buf[prfz - 3U] = 'A';
+	q = book_top(bk, SIDE_ASK);
+	if (q.q > 0.dd) {
+		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
+		buf[len++] = '\t';
+		len += qxtostr(buf + len, sizeof(buf) - len, q.q);
+		buf[len++] = '\n';
+		/* and out */
+		fwrite(buf, 1, len, stdout);
+	}
+	return;
+}
+
+static void
 snap2(book_t bk, const char *cont)
 {
 	char buf[256U];
@@ -834,7 +878,9 @@ Error: invalid suffix to invalidate, use `ns', `us', `ms', `s', `m', or `h'");
 	if (argi->dash3_flag) {
 		snap = snap3;
 	}
-	if (argi->dash2_flag) {
+	if (argi->dash1_flag && argi->dash2_flag) {
+		snap = snap12;
+	} else if (argi->dash2_flag) {
 		snap = snap2;
 	}
 
