@@ -54,8 +54,8 @@ make_book(void)
 {
 	book_t r = {
 		.quos = {
-			[BIDX(SIDE_ASK)] = make_btree(false),
-			[BIDX(SIDE_BID)] = make_btree(true),
+			[BIDX(BOOK_SIDE_ASK)] = make_btree(false),
+			[BIDX(BOOK_SIDE_BID)] = make_btree(true),
 		}
 	};
 	return r;
@@ -69,18 +69,18 @@ free_book(book_t b)
 	return (book_t){};
 }
 
-quo_t
-book_add(book_t b, quo_t q)
+book_quo_t
+book_add(book_t b, book_quo_t q)
 {
 	switch (q.s) {
-	case SIDE_BID:
-	case SIDE_ASK:
+	case BOOK_SIDE_BID:
+	case BOOK_SIDE_ASK:
 		/* proceed with level treatment */
 		switch (q.f) {
 			btree_val_t *tmp;
 			qx_t o;
 			tv_t t;
-		case LVL_3:
+		case BOOK_LVL_3:
 			tmp = btree_put(b.BOOK(q.s), q.p);
 			o = tmp->q;
 			t = tmp->t;
@@ -90,7 +90,7 @@ book_add(book_t b, quo_t q)
 			q.q = o;
 			q.t = t;
 			break;
-		case LVL_2:
+		case BOOK_LVL_2:
 			tmp = btree_put(b.BOOK(q.s), q.p);
 			o = tmp->q;
 			t = tmp->t;
@@ -99,7 +99,7 @@ book_add(book_t b, quo_t q)
 			q.q = o;
 			q.t = t;
 			break;
-		case LVL_1:
+		case BOOK_LVL_1:
 			if (UNLIKELY(q.q < 0.dd)) {
 				/* what an odd level-1 quote */
 				return NOT_A_QUO;
@@ -124,20 +124,20 @@ book_add(book_t b, quo_t q)
 				i.v->q = 0.dd;
 			}
 			break;
-		case LVL_0:
+		case BOOK_LVL_0:
 		default:
 			goto inv;
 		}
 		break;
-	case SIDE_CLR:
+	case BOOK_SIDE_CLR:
 		book_clr(b);
 		break;
-	case SIDE_DEL:
-		for (btree_iter_t i = {.t = b.BOOK(SIDE_ASK)};
+	case BOOK_SIDE_DEL:
+		for (btree_iter_t i = {.t = b.BOOK(BOOK_SIDE_ASK)};
 		     btree_iter_next(&i) && i.k <= q.p;) {
 			i.v->q = i.k < q.p ? 0.dd : i.v->q - q.q;
 		}
-		for (btree_iter_t i = {.t = b.BOOK(SIDE_BID)};
+		for (btree_iter_t i = {.t = b.BOOK(BOOK_SIDE_BID)};
 		     btree_iter_next(&i) && i.k >= q.p;) {
 			i.v->q = i.k > q.p ? 0.dd : i.v->q - q.q;
 		}
@@ -155,8 +155,8 @@ inv:
 void
 book_clr(book_t b)
 {
-	btree_clr(b.BOOK(SIDE_BID));
-	btree_clr(b.BOOK(SIDE_ASK));
+	btree_clr(b.BOOK(BOOK_SIDE_BID));
+	btree_clr(b.BOOK(BOOK_SIDE_ASK));
 	return;
 }
 
@@ -165,17 +165,17 @@ book_exp(book_t b, tv_t t)
 {
 	if (UNLIKELY(t == 0ULL)) {
 		return;
-	} else if (UNLIKELY(t == NANTV)) {
+	} else if (UNLIKELY(t == NATV)) {
 		book_clr(b);
 		return;
 	}
 	/* otherwise */
-	for (btree_iter_t i = {b.BOOK(SIDE_ASK)}; btree_iter_next(&i);) {
+	for (btree_iter_t i = {b.BOOK(BOOK_SIDE_ASK)}; btree_iter_next(&i);) {
 		if (i.v->t <= t) {
 			*i.v = btree_val_nil;
 		}
 	}
-	for (btree_iter_t i = {b.BOOK(SIDE_BID)}; btree_iter_next(&i);) {
+	for (btree_iter_t i = {b.BOOK(BOOK_SIDE_BID)}; btree_iter_next(&i);) {
 		if (i.v->t <= t) {
 			*i.v = btree_val_nil;
 		}
@@ -183,19 +183,21 @@ book_exp(book_t b, tv_t t)
 	return;
 }
 
-quo_t
-book_top(book_t b, side_t s)
+book_quo_t
+book_top(book_t b, book_side_t s)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 
 	if (UNLIKELY(!btree_iter_next(&i))) {
 		return NOT_A_QUO;
 	}
-	return (quo_t){.s = s, .f = LVL_1, .p = i.k, .q = i.v->q, .t = i.v->t};
+	return (book_quo_t){
+		.s = s, .f = BOOK_LVL_1, .p = i.k, .q = i.v->q, .t = i.v->t
+	};
 }
 
 size_t
-book_tops(px_t *restrict p, qx_t *restrict q, book_t b, side_t s, size_t n)
+book_tops(px_t *restrict p, qx_t *restrict q, book_t b, book_side_t s, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 	size_t j;
@@ -217,8 +219,8 @@ only_p:
 	return j;
 }
 
-quo_t
-book_ctop(book_t b, side_t s, qx_t q)
+book_quo_t
+book_ctop(book_t b, book_side_t s, qx_t q)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 	qx_t P = 0.dd, Q = 0.dd;
@@ -232,16 +234,17 @@ book_ctop(book_t b, side_t s, qx_t q)
 	} else if (LIKELY(Q > q)) {
 		P -= i.k * (Q - q);
 	}
-	return (quo_t){.s = s, .f = LVL_1,
-			.p = quantizepx((px_t)(P / q), i.k),
-			.q = quantizeqx(q, i.v->q),
-			.t = i.v->t,
-			};
+	return (book_quo_t){
+		.s = s, .f = BOOK_LVL_1,
+		.p = quantizepx((px_t)(P / q), i.k),
+		.q = quantizeqx(q, i.v->q),
+		.t = i.v->t,
+	};
 }
 
 size_t
 book_ctops(px_t *restrict p, qx_t *restrict q,
-	   book_t b, side_t s, qx_t Q, size_t n)
+	   book_t b, book_side_t s, qx_t Q, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 	qx_t c = 0.dd, C = 0.dd;
@@ -279,8 +282,8 @@ only_p:
 	return j;
 }
 
-quo_t
-book_vtop(book_t b, side_t s, qx_t v)
+book_quo_t
+book_vtop(book_t b, book_side_t s, qx_t v)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 	qx_t P = 0.dd, Q = 0.dd;
@@ -295,16 +298,17 @@ book_vtop(book_t b, side_t s, qx_t v)
 		/* P - v is exactly what we open too much */
 		Q -= (P - v) / i.k;
 	}
-	return (quo_t){.s = s, .f = LVL_1,
-			.p = quantizepx((px_t)(v / Q), i.k),
-			.q = quantizeqx(Q, i.v->q),
-			.t = i.v->t,
-			};
+	return (book_quo_t){
+		.s = s, .f = BOOK_LVL_1,
+		.p = quantizepx((px_t)(v / Q), i.k),
+		.q = quantizeqx(Q, i.v->q),
+		.t = i.v->t,
+	};
 }
 
 size_t
 book_vtops(px_t *restrict p, qx_t *restrict q,
-	   book_t b, side_t s, qx_t v, size_t n)
+	   book_t b, book_side_t s, qx_t v, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
 	qx_t c = 0.dd, C = 0.dd;

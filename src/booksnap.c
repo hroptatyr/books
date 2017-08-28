@@ -151,7 +151,7 @@ sufstrtotv(const char *str)
 	}
 	if (UNLIKELY(*++str != '\0')) {
 	invalid:
-		return NANTV;
+		return NATV;
 	}
 	return r;
 }
@@ -185,14 +185,14 @@ _next_stmp(tv_t newm)
 	static size_t llen;
 
 	if (getline(&line, &llen, sfil) > 0 &&
-	    (newm = strtotv(line, NULL)) != NANTV) {
+	    (newm = strtotv(line, NULL)) != NATV) {
 		return newm;
 	}
 	/* otherwise it's the end of the road */
 	free(line);
 	line = NULL;
 	llen = 0UL;
-	return NANTV;
+	return NATV;
 }
 
 
@@ -202,10 +202,10 @@ snap1(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len;
-	quo_t b, a;
+	book_quo_t b, a;
 
-	b = book_top(bk, SIDE_BID);
-	a = book_top(bk, SIDE_ASK);
+	b = book_top(bk, BOOK_SIDE_BID);
+	a = book_top(bk, BOOK_SIDE_ASK);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -239,7 +239,7 @@ snap12(book_t bk, const char *cont)
 /* like snap2 but for top-level only */
 	char buf[256U];
 	size_t len, prfz;
-	quo_t q;
+	book_quo_t q;
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -252,7 +252,7 @@ snap12(book_t bk, const char *cont)
 	buf[len++] = '\t';
 	prfz = len;
 
-	q = book_top(bk, SIDE_BID);
+	q = book_top(bk, BOOK_SIDE_BID);
 	if (q.q > 0.dd) {
 		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
 		buf[len++] = '\t';
@@ -265,7 +265,7 @@ snap12(book_t bk, const char *cont)
 
 	/* go to asks */
 	buf[prfz - 3U] = 'A';
-	q = book_top(bk, SIDE_ASK);
+	q = book_top(bk, BOOK_SIDE_ASK);
 	if (q.q > 0.dd) {
 		len += pxtostr(buf + len, sizeof(buf) - len, q.p);
 		buf[len++] = '\t';
@@ -294,7 +294,7 @@ snap2(book_t bk, const char *cont)
 	buf[len++] = '\t';
 	prfz = len;
 
-	for (book_iter_t i = book_iter(bk, SIDE_BID);
+	for (book_iter_t i = book_iter(bk, BOOK_SIDE_BID);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -306,7 +306,7 @@ snap2(book_t bk, const char *cont)
 
 	/* go to asks */
 	buf[prfz - 3U] = 'A';
-	for (book_iter_t i = book_iter(bk, SIDE_ASK);
+	for (book_iter_t i = book_iter(bk, BOOK_SIDE_ASK);
 	     book_iter_next(&i); len = prfz) {
 		len += pxtostr(buf + len, sizeof(buf) - len, i.p);
 		buf[len++] = '\t';
@@ -372,7 +372,8 @@ snap3_book(book_t bk)
 	/* bids */
 	bi = 0U;
 	bz = snap3_aux[ibk].bz;
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)}; book_iter_next(&i); bi++) {
+	for (book_iter_t i = {.b = bk.BOOK(BOOK_SIDE_BID)};
+	     book_iter_next(&i); bi++) {
 		if (UNLIKELY(bi >= bz)) {
 			bz = (bz *= 2U) ?: 32U;
 			snap3_aux[ibk].b =
@@ -389,7 +390,8 @@ snap3_book(book_t bk)
 	/* asks */
 	bi = 0U;
 	bz = snap3_aux[ibk].az;
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)}; book_iter_next(&i); bi++) {
+	for (book_iter_t i = {.b = bk.BOOK(BOOK_SIDE_ASK)};
+	     book_iter_next(&i); bi++) {
 		if (UNLIKELY(bi >= bz)) {
 			bz = (bz *= 2U) ?: 32U;
 			snap3_aux[ibk].a =
@@ -440,7 +442,7 @@ snap3(book_t bk, const char *cont)
 	qp = snap3_aux[ibk].B;
 	bn = snap3_aux[ibk].bn;
 	bi = 0U;
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_BID)};
+	for (book_iter_t i = {.b = bk.BOOK(BOOK_SIDE_BID)};
 	     book_iter_next(&i); len = prfz) {
 		px_t p;
 		qx_t q;
@@ -485,7 +487,7 @@ snap3(book_t bk, const char *cont)
 	qp = snap3_aux[ibk].A;
 	bn = snap3_aux[ibk].an;
 	bi = 0U;
-	for (book_iter_t i = {.b = bk.BOOK(SIDE_ASK)};
+	for (book_iter_t i = {.b = bk.BOOK(BOOK_SIDE_ASK)};
 	     book_iter_next(&i); len = prfz) {
 		px_t p;
 		qx_t q;
@@ -545,8 +547,8 @@ snapn(book_t bk, const char *cont)
 	memset(a, -1, sizeof(a));
 	memset(A, -1, sizeof(A));
 
-	bn = book_tops(b, B, bk, SIDE_BID, ntop);
-	an = book_tops(a, A, bk, SIDE_ASK, ntop);
+	bn = book_tops(b, B, bk, BOOK_SIDE_BID, ntop);
+	an = book_tops(a, A, bk, BOOK_SIDE_ASK, ntop);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -589,10 +591,10 @@ snapc(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len;
-	quo_t b, a;
+	book_quo_t b, a;
 
-	b = book_ctop(bk, SIDE_BID, cqty);
-	a = book_ctop(bk, SIDE_ASK, cqty);
+	b = book_ctop(bk, BOOK_SIDE_BID, cqty);
+	a = book_ctop(bk, BOOK_SIDE_ASK, cqty);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -640,8 +642,8 @@ snapcn(book_t bk, const char *cont)
 	memset(a, -1, sizeof(a));
 	memset(A, -1, sizeof(A));
 
-	bn = book_ctops(b, B, bk, SIDE_BID, cqty, ntop);
-	an = book_ctops(a, A, bk, SIDE_ASK, cqty, ntop);
+	bn = book_ctops(b, B, bk, BOOK_SIDE_BID, cqty, ntop);
+	an = book_ctops(a, A, bk, BOOK_SIDE_ASK, cqty, ntop);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -685,10 +687,10 @@ snapv(book_t bk, const char *cont)
 {
 	char buf[256U];
 	size_t len;
-	quo_t b, a;
+	book_quo_t b, a;
 
-	b = book_vtop(bk, SIDE_BID, cqty);
-	a = book_vtop(bk, SIDE_ASK, cqty);
+	b = book_vtop(bk, BOOK_SIDE_BID, cqty);
+	a = book_vtop(bk, BOOK_SIDE_ASK, cqty);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -736,8 +738,8 @@ snapvn(book_t bk, const char *cont)
 	memset(a, -1, sizeof(a));
 	memset(A, -1, sizeof(A));
 
-	bn = book_vtops(b, B, bk, SIDE_BID, cqty, ntop);
-	an = book_vtops(a, A, bk, SIDE_ASK, cqty, ntop);
+	bn = book_vtops(b, B, bk, BOOK_SIDE_BID, cqty, ntop);
+	an = book_vtops(a, A, bk, BOOK_SIDE_ASK, cqty, ntop);
 
 	len = tvtostr(buf, sizeof(buf), metr);
 	if (LIKELY(cont != NULL)) {
@@ -806,7 +808,7 @@ Error: cannot read interval argument, must be positive.");
 			rc = EXIT_FAILURE;
 			goto out;
 		}
-		if (UNLIKELY((mult = sufstrtotv(on)) == NANTV)) {
+		if (UNLIKELY((mult = sufstrtotv(on)) == NATV)) {
 			errno = 0, serror("\
 Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -822,7 +824,7 @@ Error: invalid suffix in interval, use `ns', `us', `ms', `s', `m', or `h'");
 
 		o = strtol(argi->offset_arg, &on, 10);
 		mult = sufstrtotv(on);
-		if (o && mult == NANTV) {
+		if (o && mult == NATV) {
 			errno = 0, serror("\
 Error: invalid suffix in offset, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -861,7 +863,7 @@ Error: cannot open stamps file");
 		tv_t x;
 
 		inva = strtoull(argi->invalidate_arg, &on, 10);
-		if (UNLIKELY((x = sufstrtotv(on)) == NANTV)) {
+		if (UNLIKELY((x = sufstrtotv(on)) == NATV)) {
 			errno = 0, serror("\
 Error: invalid suffix to invalidate, use `ns', `us', `ms', `s', `m', or `h'");
 			rc = EXIT_FAILURE;
@@ -982,7 +984,7 @@ Error: cannot read consolidated quantity");
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
 				/* invalid quote line */
 				continue;
-			} else if (q.q.t == NANTV) {
+			} else if (q.q.t == NATV) {
 				/* invalid quote line */
 				continue;
 			} else if (UNLIKELY(!metr)) {
@@ -1033,7 +1035,7 @@ Error: cannot read consolidated quantity");
 		}
 		free(line);
 		/* final snapshot */
-		if (metr < NANTV) {
+		if (metr < NATV) {
 			for (ibk = 0U; ibk < nbook + nctch; ibk++) {
 				book_exp(book[ibk], inva ? metr : 0ULL);
 				snap(book[ibk], cont[ibk]);

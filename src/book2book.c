@@ -79,7 +79,7 @@ typedef struct {
 #define HX_CATCHALL	((hx_t)-1ULL)
 
 /* output mode */
-static void(*prq)(xbook_t*, quo_t, quo_t);
+static void(*prq)(xbook_t*, book_quo_t, book_quo_t);
 /* for N-books */
 static size_t ntop;
 /* consolidation, either quantity or value (price*quantity) */
@@ -134,15 +134,15 @@ static const char *prfx;
 static size_t prfz;
 
 static void
-prq1(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prq1(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to 1-books, aligned */
-	quo_t b, a;
+	book_quo_t b, a;
 	char buf[256U];
 	size_t len = 0U;
 
-	b = book_top(xb->book, SIDE_BID);
-	a = book_top(xb->book, SIDE_ASK);
+	b = book_top(xb->book, BOOK_SIDE_BID);
+	a = book_top(xb->book, BOOK_SIDE_ASK);
 
 	if ((b.p == xb->bid && b.q == xb->bsz &&
 	     a.p == xb->ask && a.q == xb->asz)) {
@@ -180,7 +180,7 @@ prq1(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 }
 
 static void
-prq2(xbook_t *UNUSED(xb), quo_t q, quo_t UNUSED(o))
+prq2(xbook_t *UNUSED(xb), book_quo_t q, book_quo_t UNUSED(o))
 {
 /* print 2-books */
 	char buf[256U];
@@ -200,7 +200,7 @@ prq2(xbook_t *UNUSED(xb), quo_t q, quo_t UNUSED(o))
 }
 
 static void
-prq3(xbook_t *UNUSED(xb), quo_t q, quo_t o)
+prq3(xbook_t *UNUSED(xb), book_quo_t q, book_quo_t o)
 {
 /* convert to 3-books */
 	char buf[256U];
@@ -220,7 +220,7 @@ prq3(xbook_t *UNUSED(xb), quo_t q, quo_t o)
 }
 
 static void
-prqn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prqn(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -233,8 +233,8 @@ prqn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 	memset(a, 0, sizeof(a));
 	memset(A, 0, sizeof(A));
 
-	size_t bn = book_tops(b, B, xb->book, SIDE_BID, ntop);
-	size_t an = book_tops(a, A, xb->book, SIDE_ASK, ntop);
+	size_t bn = book_tops(b, B, xb->book, BOOK_SIDE_BID, ntop);
+	size_t an = book_tops(a, A, xb->book, BOOK_SIDE_ASK, ntop);
 
 	if (!memcmp(B, xb->bszs, sizeof(B)) &&
 	    !memcmp(A, xb->aszs, sizeof(A)) &&
@@ -286,15 +286,15 @@ prqn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 }
 
 static void
-prqc(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prqc(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to consolidated 1-books, aligned */
-	quo_t bc, ac;
+	book_quo_t bc, ac;
 	char buf[256U];
 	size_t len = 0U;
 
-	bc = book_ctop(xb->book, SIDE_BID, cqty);
-	ac = book_ctop(xb->book, SIDE_ASK, cqty);
+	bc = book_ctop(xb->book, BOOK_SIDE_BID, cqty);
+	ac = book_ctop(xb->book, BOOK_SIDE_ASK, cqty);
 
 	if (bc.p == xb->bid && ac.p == xb->ask) {
 		return;
@@ -329,7 +329,7 @@ prqc(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 }
 
 static void
-prqcn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prqcn(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -342,8 +342,8 @@ prqcn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 	memset(a, 0, sizeof(a));
 	memset(A, 0, sizeof(A));
 
-	size_t bn = book_ctops(b, B, xb->book, SIDE_BID, cqty, ntop);
-	size_t an = book_ctops(a, A, xb->book, SIDE_ASK, cqty, ntop);
+	size_t bn = book_ctops(b, B, xb->book, BOOK_SIDE_BID, cqty, ntop);
+	size_t an = book_ctops(a, A, xb->book, BOOK_SIDE_ASK, cqty, ntop);
 
 	if (!memcmp(b, xb->bids, sizeof(b)) &&
 	    !memcmp(a, xb->asks, sizeof(a))) {
@@ -391,15 +391,15 @@ prqcn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 }
 
 static void
-prqv(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prqv(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to value-consolidated 1-books, aligned */
-	quo_t bc, ac;
+	book_quo_t bc, ac;
 	char buf[256U];
 	size_t len = 0U;
 
-	bc = book_vtop(xb->book, SIDE_BID, cqty);
-	ac = book_vtop(xb->book, SIDE_ASK, cqty);
+	bc = book_vtop(xb->book, BOOK_SIDE_BID, cqty);
+	ac = book_vtop(xb->book, BOOK_SIDE_ASK, cqty);
 
 	if (bc.p == xb->bid && ac.p == xb->ask) {
 		return;
@@ -434,7 +434,7 @@ prqv(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 }
 
 static void
-prqvn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
+prqvn(xbook_t *xb, book_quo_t UNUSED(q), book_quo_t UNUSED(o))
 {
 /* convert to n-books, aligned */
 	px_t b[ntop];
@@ -447,8 +447,8 @@ prqvn(xbook_t *xb, quo_t UNUSED(q), quo_t UNUSED(o))
 	memset(a, 0, sizeof(a));
 	memset(A, 0, sizeof(A));
 
-	size_t bn = book_vtops(b, B, xb->book, SIDE_BID, cqty, ntop);
-	size_t an = book_vtops(a, A, xb->book, SIDE_ASK, cqty, ntop);
+	size_t bn = book_vtops(b, B, xb->book, BOOK_SIDE_BID, cqty, ntop);
+	size_t an = book_vtops(a, A, xb->book, BOOK_SIDE_ASK, cqty, ntop);
 
 	if (!memcmp(b, xb->bids, sizeof(b)) &&
 	    !memcmp(a, xb->asks, sizeof(a))) {
@@ -611,7 +611,7 @@ Error: cannot read consolidated quantity");
 		for (ssize_t nrd; (nrd = getline(&line, &llen, stdin)) > 0;) {
 			xquo_t q;
 			size_t k;
-			quo_t o;
+			book_quo_t o;
 			hx_t hx;
 
 			if (NOT_A_XQUO_P(q = read_xquo(line, nrd))) {
@@ -646,30 +646,31 @@ Error: cannot read consolidated quantity");
 		unwnd:
 			/* we have to unwind second levels manually
 			 * because we need to print the interim steps */
-			if (UNLIKELY(q.q.f == LVL_1 &&
+			if (UNLIKELY(q.q.f == BOOK_LVL_1 &&
 				     (prq == prq2 || prq == prq3))) {
 				book_iter_t i = book_iter(book[k].book, q.q.s);
 				while (book_iter_next(&i) &&
-				       (q.q.s == SIDE_BID && i.p > q.q.p ||
-					q.q.s == SIDE_ASK && i.p < q.q.p)) {
-					quo_t r = {
-						q.q.s, LVL_2,
+				       (q.q.s == BOOK_SIDE_BID && i.p > q.q.p ||
+					q.q.s == BOOK_SIDE_ASK && i.p < q.q.p)) {
+					book_quo_t r = {
+						q.q.s, BOOK_LVL_2,
 						.p = i.p,
 						.q = 0.dd
 					};
 					o = book_add(book[k].book, r);
 					prq(book + k, r, o);
 				}
-			} else if (UNLIKELY(q.q.s == SIDE_CLR)) {
+			} else if (UNLIKELY(q.q.s == BOOK_SIDE_CLR)) {
 				if (UNLIKELY(prq == prq2 || prq == prq3)) {
 					/* do it manually so we can print
 					 * the interim steps */
 					book_iter_t i;
 
-					i = book_iter(book[k].book, SIDE_BID);
+					i = book_iter(book[k].book, BOOK_SIDE_BID);
 					while (book_iter_next(&i)) {
-						quo_t r = {
-							SIDE_BID, LVL_2,
+						book_quo_t r = {
+							BOOK_SIDE_BID,
+							BOOK_LVL_2,
 							.p = i.p,
 							.q = 0.dd,
 						};
@@ -677,10 +678,11 @@ Error: cannot read consolidated quantity");
 						prq(book + k, r, o);
 					}
 
-					i = book_iter(book[k].book, SIDE_ASK);
+					i = book_iter(book[k].book, BOOK_SIDE_ASK);
 					while (book_iter_next(&i)) {
-						quo_t r = {
-							SIDE_ASK, LVL_2,
+						book_quo_t r = {
+							BOOK_SIDE_ASK,
+							BOOK_LVL_2,
 							.p = i.p,
 							.q = 0.dd,
 						};
