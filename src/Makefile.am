@@ -39,8 +39,6 @@ libbooks_a_LIBADD += libdfp.a
 
 pkginclude_HEADERS =
 pkginclude_HEADERS += books.h
-pkginclude_HEADERS += btree.h
-pkginclude_HEADERS += btree_val.h
 
 bin_PROGRAMS += book2book
 book2book_SOURCES = book2book.c book2book.yuck
