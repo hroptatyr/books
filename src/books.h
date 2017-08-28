@@ -95,8 +95,6 @@ typedef struct {
 #define NOT_A_QUO	(quo_t){SIDE_UNK}
 #define NOT_A_QUO_P(x)	!((x).s)
 
-_Static_assert(sizeof(quo_t) == 32U, "quo_t of wrong size");
-
 typedef struct {
 	void *quos[2U];
 } book_t;
