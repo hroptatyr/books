@@ -110,6 +110,11 @@ typedef struct {
 #define BIDX(x)		((x) - 1U)
 #define BOOK(x)		quos[BIDX(x)]
 
+typedef struct {
+	qx_t base;
+	qx_t term;
+} book_pdo_t;
+
 
 extern book_t make_book(void);
 extern book_t free_book(book_t);
@@ -161,6 +166,11 @@ extern size_t
 book_vtops(px_t*restrict, qx_t*restrict, book_t, book_side_t, qx_t V, size_t n);
 
 extern bool book_iter_next(book_iter_t*);
+
+/**
+ * Like book_ctop() but produce a base/term aggregate and limit book
+ * traversal to LMT. */
+extern book_pdo_t book_pdo(book_t, book_side_t, qx_t q, px_t lmt);
 
 
 static inline book_iter_t

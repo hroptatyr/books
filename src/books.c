@@ -351,6 +351,29 @@ only_p:
 }
 
 
+book_pdo_t
+book_pdo(book_t b, book_side_t s, qx_t q, px_t lmt)
+{
+	book_pdo_t r = {.base = 0.dd, .term = 0.dd};
+
+	/* nan to +/- inf */
+	lmt = !isnanpx(lmt) ? lmt
+		: s == BOOK_SIDE_BID ? -INFPX
+		: s == BOOK_SIDE_ASK ? INFPX
+		: lmt;
+	for (btree_iter_t i = {.t = b.BOOK(s)};
+	     q > 0.dd && btree_iter_next(&i) &&
+		     (s == BOOK_SIDE_BID && i.k >= lmt ||
+		      s == BOOK_SIDE_ASK && i.k <= lmt);) {
+		qx_t Q = i.v->q <= q ? i.v->q : q;
+		r.term += i.k * Q;
+		r.base += Q;
+		q -= Q;
+	}
+	return r;
+}
+
+
 bool
 book_iter_next(book_iter_t *iter)
 {
