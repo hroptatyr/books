@@ -19,23 +19,17 @@ SUFFIXES =
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 
-noinst_LIBRARIES += libdfp.a
-libdfp_a_SOURCES =
-libdfp_a_SOURCES += dfp754_d32.c dfp754_d32.h
-libdfp_a_SOURCES += dfp754_d64.c dfp754_d64.h
-libdfp_a_CPPFLAGS = $(AM_CPPFLAGS)
-libdfp_a_CPPFLAGS += $(dfp754_CFLAGS)
-
 lib_LIBRARIES += libbooks.a
 libbooks_a_SOURCES =
 libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_SOURCES += books.c books.h
 libbooks_a_SOURCES += nifty.h
 libbooks_a_SOURCES += btree_val.h
+libbooks_a_SOURCES += dfp754_d32.c dfp754_d32.h
+libbooks_a_SOURCES += dfp754_d64.c dfp754_d64.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 libbooks_a_LIBADD = $(dfp754_LIBS)
-libbooks_a_LIBADD += libdfp.a
 
 pkginclude_HEADERS =
 pkginclude_HEADERS += books.h
@@ -50,9 +44,7 @@ book2book_CPPFLAGS = $(AM_CPPFLAGS)
 book2book_CPPFLAGS += $(dfp754_CFLAGS)
 book2book_LDFLAGS = $(AM_LDFLAGS)
 book2book_LDFLAGS += $(dfp754_LIBS)
-book2book_LDADD =
-book2book_LDADD += libdfp.a
-book2book_LDADD += libbooks.a
+book2book_LDADD = libbooks.a
 BUILT_SOURCES += book2book.yucc
 
 bin_PROGRAMS += booksnap
@@ -65,9 +57,7 @@ booksnap_CPPFLAGS = $(AM_CPPFLAGS)
 booksnap_CPPFLAGS += $(dfp754_CFLAGS)
 booksnap_LDFLAGS = $(AM_LDFLAGS)
 booksnap_LDFLAGS += $(dfp754_LIBS)
-booksnap_LDADD =
-booksnap_LDADD += libdfp.a
-booksnap_LDADD += libbooks.a
+booksnap_LDADD = libbooks.a
 BUILT_SOURCES += booksnap.yucc
 
 
