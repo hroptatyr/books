@@ -22,7 +22,7 @@ check_PROGRAMS =
 CLEANFILES = $(check_PROGRAMS)
 
 books_CFLAGS = -I$(top_srcdir)/src
-books_LIBS = $(top_builddir)/src/libbooks.a
+books_LIBS = $(top_builddir)/src/libbooks.a $(top_builddir)/src/libdfp.a
 
 ## summon our helper
 include clitoris.am
