@@ -80,4 +80,14 @@ EXTRA_DIST += xmpl_10.b
 EXTRA_DIST += xmpl_11.b
 EXTRA_DIST += xmpl_01.s
 
+check_PROGRAMS += book_top_01
+bintests += book_top_01
+check_PROGRAMS += book_top_02
+bintests += book_top_02
+check_PROGRAMS += book_top_03
+bintests += book_top_03
+
+check_PROGRAMS += book_pdo_01
+bintests += book_pdo_01
+
 ## Makefile.am ends here
