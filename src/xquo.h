@@ -40,7 +40,7 @@
 #include "books.h"
 
 typedef struct {
-	quo_t q;
+	book_quo_t q;
 	const char *ins;
 	size_t inz;
 } xquo_t;

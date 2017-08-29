@@ -49,7 +49,7 @@ typedef long long unsigned int tv_t;
 #define isnanqx	isnand64
 #define INFPX	INFD64
 #define isinfpx	isinfd64
-#define NANTV	((tv_t)-1ULL)
+#define NATV	((tv_t)-1ULL)
 
 #define NSECS	(1000000000)
 #define USECS	(1000000)
@@ -71,28 +71,28 @@ typedef long long unsigned int tv_t;
  *   - T0 for trades (at ask) and S0 for sells at bid */
 
 typedef enum {
-	SIDE_UNK,
-	SIDE_ASK,
-	SIDE_BID,
-	SIDE_CLR,
-	SIDE_DEL,
-	NSIDES
-} side_t;
+	BOOK_SIDE_UNK,
+	BOOK_SIDE_ASK,
+	BOOK_SIDE_BID,
+	BOOK_SIDE_CLR,
+	BOOK_SIDE_DEL,
+	NBOOK_SIDES
+} book_side_t;
 
 typedef struct {
-	side_t s;
+	book_side_t s;
 	enum {
-		LVL_0,
-		LVL_1,
-		LVL_2,
-		LVL_3,
+		BOOK_LVL_0,
+		BOOK_LVL_1,
+		BOOK_LVL_2,
+		BOOK_LVL_3,
 	} f;
 	px_t p;
 	qx_t q;
 	tv_t t;
-} quo_t;
+} book_quo_t;
 
-#define NOT_A_QUO	(quo_t){SIDE_UNK}
+#define NOT_A_QUO	(book_quo_t){BOOK_SIDE_UNK}
 #define NOT_A_QUO_P(x)	!((x).s)
 
 typedef struct {
@@ -110,6 +110,11 @@ typedef struct {
 #define BIDX(x)		((x) - 1U)
 #define BOOK(x)		quos[BIDX(x)]
 
+typedef struct {
+	qx_t base;
+	qx_t term;
+} book_pdo_t;
+
 
 extern book_t make_book(void);
 extern book_t free_book(book_t);
@@ -118,7 +123,7 @@ extern book_t free_book(book_t);
  * Add QUO to BOOK.
  * QUO will hold the previous state, i.e. the old price level
  * in p, the old quantity in q and the old time in t, respectively. */
-extern quo_t book_add(book_t, quo_t);
+extern book_quo_t book_add(book_t, book_quo_t);
 
 /**
  * Clear the entire book. */
@@ -130,41 +135,46 @@ extern void book_exp(book_t, tv_t);
 
 /**
  * Return the top-most quote of BOOK'S SIDE. */
-extern quo_t book_top(book_t, side_t);
+extern book_quo_t book_top(book_t, book_side_t);
 
 /**
  * Put the top-most N price levels into PX (and QX) and return the number
  * of levels filled. */
 extern size_t
-book_tops(px_t*restrict, qx_t*restrict, book_t, side_t, size_t n);
+book_tops(px_t*restrict, qx_t*restrict, book_t, book_side_t, size_t n);
 
 /**
  * Return the consolidated quote of BOOK'S SIDE that equals or exceeds Q. */
-extern quo_t book_ctop(book_t, side_t, qx_t Q);
+extern book_quo_t book_ctop(book_t, book_side_t, qx_t Q);
 
 /**
  * Put the top-most N consolidated price levels into PX (and QX) and return
  * the number of levels filled.  Level i equals or exceeds i*Q in quantity. */
 extern size_t
-book_ctops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t Q, size_t n);
+book_ctops(px_t*restrict, qx_t*restrict, book_t, book_side_t, qx_t Q, size_t n);
 
 /**
  * Return the value-consolidated quote of BOOK'S SIDE that equals or exceeds V.
  * Value is calculated as price times quantity. */
-extern quo_t book_vtop(book_t, side_t, qx_t V);
+extern book_quo_t book_vtop(book_t, book_side_t, qx_t V);
 
 /**
  * Put the top-most N value-consolidated price levels into PX (and QX) and
  * return the number of levels filled.
  * Level i equals or exceeds i*V in value. */
 extern size_t
-book_vtops(px_t*restrict, qx_t*restrict, book_t, side_t, qx_t V, size_t n);
+book_vtops(px_t*restrict, qx_t*restrict, book_t, book_side_t, qx_t V, size_t n);
 
 extern bool book_iter_next(book_iter_t*);
 
+/**
+ * Like book_ctop() but produce a base/term aggregate and limit book
+ * traversal to LMT. */
+extern book_pdo_t book_pdo(book_t, book_side_t, qx_t q, px_t lmt);
+
 
 static inline book_iter_t
-book_iter(book_t b, side_t s)
+book_iter(book_t b, book_side_t s)
 {
 	return (book_iter_t){b.BOOK(s)};
 }

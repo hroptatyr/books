@@ -73,17 +73,17 @@ strtotv(const char *ln, char **endptr)
 	/* time value up first */
 	with (long unsigned int s, x) {
 		if (UNLIKELY(!(s = strtoul(ln, &on, 10)) || on == NULL)) {
-			r = NANTV;
+			r = NATV;
 			goto out;
 		} else if (*on == '.') {
 			char *moron;
 
 			x = strtoul(++on, &moron, 10);
 			if (UNLIKELY(moron - on > 9U)) {
-				return NANTV;
+				return NATV;
 			} else if ((moron - on) % 3U) {
 				/* huh? */
-				return NANTV;
+				return NATV;
 			}
 			switch (moron - on) {
 			default:
@@ -181,9 +181,9 @@ read_xquo(const char *line, size_t llen)
 		 * map C to CLR, D to DEL (and T for TRA to DEL)
 		 * everything else goes to SIDE_UNK */
 		s &= ~0x20U;
-		s &= (unsigned char)-(s ^ '@' < NSIDES || s == 'T');
+		s &= (unsigned char)-(s ^ '@' < NBOOK_SIDES || s == 'T');
 		s &= 0xfU;
-		q.q.s = (side_t)s;
+		q.q.s = (book_side_t)s;
 
 		if (UNLIKELY(!q.q.s)) {
 			/* cannot put entry to either side, just ignore */

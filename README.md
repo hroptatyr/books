@@ -1,7 +1,11 @@
 books
 =====
 
-Convert and reproduce order books.
+Library to reproduce and inspect (aggregated) order books.
+Tools to do simple conversions of order books inside.
+
+This is a sister project of [clob][2] which handles the disaggregated
+case, i.e. at order level instead of quote level.
 
 
 Red tape
@@ -32,3 +36,4 @@ None.
 
 
   [1]: http://opensource.org/licenses/BSD-3-Clause
+  [2]: http://github.com/hroptatyr/clob
