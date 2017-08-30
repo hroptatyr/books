@@ -431,7 +431,7 @@ btree_iter_next(btree_iter_t *iter)
 	}
 	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
 	do {
-		for (size_t i = iter->i; i < iter->t->n; i++) {
+		for (size_t i = iter->i, n = iter->t->n; i < n; i++) {
 			if (LIKELY(!btree_val_nil_p(iter->t->val[i].v))) {
 				/* good one */
 				iter->k = iter->t->key[i];
