@@ -62,4 +62,6 @@ extern btree_val_t *btree_top(btree_t, btree_key_t*);
 
 extern bool btree_iter_next(btree_iter_t*);
 
+extern void btree_vac(btree_t t);
+
 #endif	/* INCLUDED_btree_h_ */
