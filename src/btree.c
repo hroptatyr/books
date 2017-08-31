@@ -58,8 +58,8 @@ struct btree_s {
 	uint32_t innerp:1;
 	uint32_t descp:1;
 	uint32_t splitp:1;
-	uint32_t emptyp:1;
-	uint32_t vacuum:12;
+	uint32_t:29;
+	uint64_t used;
 	btree_key_t key[63U + 1U/*spare*/];
 	btree_ual_t val[64U];
 	btree_t next;
@@ -254,6 +254,12 @@ leaf_add(btree_t t, btree_key_t k, bool *splitp)
 
 	if (nul > i) {
 		/* spare item is far to the right */
+		uint64_t msk =
+			((t->used >> i) & ((1ULL << (nul - i)) - 1U)) << i;
+		t->used ^= msk;
+		msk <<= 1ULL;
+		t->used ^= msk;
+
 		memmove(t->key + i + 1U,
 			t->key + i + 0U,
 			(nul - i) * sizeof(*t->key));
@@ -261,8 +267,14 @@ leaf_add(btree_t t, btree_key_t k, bool *splitp)
 			t->val + i + 0U,
 			(nul - i) * sizeof(*t->val));
 	} else if (nul < i) {
-		/* spare item to the left, good job
-		 * go down with the index as the hole will be to our left */
+		/* spare item to the left, good job */
+		uint64_t msk =
+			((t->used >> nul) & ((1ULL << (i - nul)) - 1U)) << nul;
+		t->used ^= msk;
+		msk >>= 1ULL;
+		t->used ^= msk;
+
+		/* go down with the index as the hole will be to our left */
 		i--;
 		memmove(t->key + nul + 0U,
 			t->key + nul + 1U,
@@ -271,12 +283,15 @@ leaf_add(btree_t t, btree_key_t k, bool *splitp)
 			t->val + nul + 1U,
 			(i - nul) * sizeof(*t->val));
 	}
+
 	t->n += !(nul < t->n);
 	t->key[i] = k;
 	t->val[i].v = btree_val_nil;
+
 out:
 	*splitp = t->n >= countof(t->key) - 1U;
-	t->emptyp = 0U;
+	/* mark used */
+	t->used |= (1ULL << i);
 	return &t->val[i].v;
 }
 
@@ -379,10 +394,6 @@ btree_put(btree_t t, btree_key_t k)
 	}
 
 	t->splitp = splitp;
-	if (t->vacuum++ == 4095U) {
-		btree_vac(t);
-		t->vacuum = 0U;
-	}
 	return vp;
 }
 
@@ -437,12 +448,12 @@ btree_iter_next(btree_iter_t *iter)
 		goto inv;
 	}
 	for (; iter->t->innerp; iter->t = iter->t->val->t, iter->i = 0U);
-	for (; iter->t && iter->t->emptyp; iter->t = iter->t->next);
-	if (UNLIKELY(iter->t == NULL)) {
-		goto inv;
-	}
 	do {
-		for (size_t i = iter->i, n = iter->t->n; i < n; i++) {
+		uint64_t u = iter->t->used >> iter->i;
+		unsigned int sh = __builtin_ctzll(u);
+
+		for (size_t i = iter->i + sh, n = iter->t->n;
+		     i < n; sh = __builtin_ctzll(u >>= sh + 1U), i += sh + 1U) {
 			if (LIKELY(!btree_val_nil_p(iter->t->val[i].v))) {
 				/* good one */
 				iter->k = iter->t->key[i];
@@ -450,6 +461,9 @@ btree_iter_next(btree_iter_t *iter)
 				iter->i = i + 1U;
 				return true;
 			}
+			/* mark unused */
+			iter->t->used |= (1ULL << i);
+			iter->t->used ^= (1ULL << i);
 		}
 		/* reset index */
 		iter->i = 0U;
@@ -458,22 +472,6 @@ inv:
 	/* invalidate */
 	iter->v = NULL;
 	return false;
-}
-
-void
-btree_vac(btree_t t)
-{
-	btree_t s;
-
-	for (s = t; s->innerp; s = s->val->t);
-	do {
-		size_t i;
-		for (i = s->n; i > 0U && btree_val_nil_p(s->val[i - 1].v); i--);
-		if ((s->n = i) == 0U) {
-			s->emptyp = 1U;
-		}
-	} while ((s = s->next));
-	for (s = t; s->innerp && s->val->t->innerp; s = s->val->t);
 }
 
 /* btree.c ends here */
