@@ -121,7 +121,7 @@ book_add(book_t b, book_quo_t q)
 			/* now iter away anything that isn't our quote */
 			for (btree_iter_t i = {.t = b.BOOK(q.s)};
 			     btree_iter_next(&i) && i.k != q.p;) {
-				i.v->q = 0.dd;
+				*i.v = btree_val_nil;
 			}
 			break;
 		case BOOK_LVL_0:
