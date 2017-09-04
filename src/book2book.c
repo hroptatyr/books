@@ -694,10 +694,6 @@ Error: cannot read consolidated quantity");
 			}
 			/* add to book */
 			o = book_add(book[k].book, q.q);
-			if (LIKELY(o.q == q.q.q)) {
-				/* nothing changed */
-				continue;
-			}
 			/* printx */
 			prq(book + k, q.q, o);
 		}
