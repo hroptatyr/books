@@ -49,6 +49,19 @@
 #define quantizeqx	quantized64
 
 
+static inline __attribute__((pure, const)) tv_t
+min_tv(tv_t t1, tv_t t2)
+{
+	return t1 <= t2 ? t1 : t2;
+}
+
+static inline __attribute__((pure, const)) tv_t
+max_tv(tv_t t1, tv_t t2)
+{
+	return t1 >= t2 ? t1 : t2;
+}
+
+
 book_t
 make_book(void)
 {
@@ -350,7 +363,7 @@ only_p:
 book_pdo_t
 book_pdo(book_t b, book_side_t s, qx_t q, px_t lmt)
 {
-	book_pdo_t r = {.base = 0.dd, .term = 0.dd};
+	book_pdo_t r = {.base = 0.dd, .term = 0.dd, .yngt = 0U, .oldt = NATV};
 
 	/* nan to +/- inf */
 	lmt = !isnanpx(lmt) ? lmt
@@ -364,6 +377,8 @@ book_pdo(book_t b, book_side_t s, qx_t q, px_t lmt)
 		qx_t Q = i.v->q <= q ? i.v->q : q;
 		r.term += i.k * Q;
 		r.base += Q;
+		r.yngt = max_tv(r.yngt, i.v->t);
+		r.oldt = min_tv(r.oldt, i.v->t);
 		q -= Q;
 	}
 	return r;
