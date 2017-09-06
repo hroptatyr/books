@@ -113,6 +113,8 @@ typedef struct {
 typedef struct {
 	qx_t base;
 	qx_t term;
+	tv_t yngt;
+	tv_t oldt;
 } book_pdo_t;
 
 
