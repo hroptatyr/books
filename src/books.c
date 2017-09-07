@@ -40,6 +40,7 @@
 #if defined HAVE_DFP754_H
 # include <dfp754.h>
 #endif	/* HAVE_DFP754_H */
+#include "dfp754_d32.h"
 #include "dfp754_d64.h"
 #include "books.h"
 #include "btree.h"
@@ -98,7 +99,7 @@ book_add(book_t b, book_quo_t q)
 			o = tmp->q;
 			t = tmp->t;
 			q.q += o;
-			tmp->q = q.q >= 0.dd ? q.q : 0.dd;
+			tmp->q = q.q >= 0.df ? q.q : 0.df;
 			tmp->t = q.t;
 			q.q = o;
 			q.t = t;
@@ -113,7 +114,7 @@ book_add(book_t b, book_quo_t q)
 			q.t = t;
 			break;
 		case BOOK_LVL_1:
-			if (UNLIKELY(q.q < 0.dd)) {
+			if (UNLIKELY(q.q < 0.df)) {
 				/* what an odd level-1 quote */
 				return NOT_A_QUO;
 			}
@@ -144,11 +145,11 @@ book_add(book_t b, book_quo_t q)
 	case BOOK_SIDE_DEL:
 		for (btree_iter_t i = {.t = b.BOOK(BOOK_SIDE_ASK)};
 		     btree_iter_next(&i) && i.k <= q.p;) {
-			i.v->q = i.k < q.p ? 0.dd : i.v->q - q.q;
+			i.v->q = i.k < q.p ? 0.df : i.v->q - q.q;
 		}
 		for (btree_iter_t i = {.t = b.BOOK(BOOK_SIDE_BID)};
 		     btree_iter_next(&i) && i.k >= q.p;) {
-			i.v->q = i.k > q.p ? 0.dd : i.v->q - q.q;
+			i.v->q = i.k > q.p ? 0.df : i.v->q - q.q;
 		}
 		break;
 	default:
@@ -232,7 +233,7 @@ book_quo_t
 book_ctop(book_t b, book_side_t s, qx_t q)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
-	qx_t P = 0.dd, Q = 0.dd;
+	qx_t P = 0.df, Q = 0.df;
 
 	for (; Q < q && btree_iter_next(&i);) {
 		P += i.k * i.v->q;
@@ -256,7 +257,7 @@ book_ctops(px_t *restrict p, qx_t *restrict q,
 	   book_t b, book_side_t s, qx_t Q, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
-	qx_t c = 0.dd, C = 0.dd;
+	qx_t c = 0.df, C = 0.df;
 	size_t j;
 	qx_t R;
 
@@ -295,7 +296,7 @@ book_quo_t
 book_vtop(book_t b, book_side_t s, qx_t v)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
-	qx_t P = 0.dd, Q = 0.dd;
+	qx_t P = 0.df, Q = 0.df;
 
 	for (; P < v && btree_iter_next(&i);) {
 		P += i.k * i.v->q;
@@ -320,7 +321,7 @@ book_vtops(px_t *restrict p, qx_t *restrict q,
 	   book_t b, book_side_t s, qx_t v, size_t n)
 {
 	btree_iter_t i = {.t = b.BOOK(s)};
-	qx_t c = 0.dd, C = 0.dd;
+	qx_t c = 0.df, C = 0.df;
 	size_t j;
 	qx_t r;
 
@@ -363,7 +364,7 @@ only_p:
 book_pdo_t
 book_pdo(book_t b, book_side_t s, qx_t q, px_t lmt)
 {
-	book_pdo_t r = {.base = 0.dd, .term = 0.dd, .yngt = 0U, .oldt = NATV};
+	book_pdo_t r = {.base = 0.df, .term = 0.df, .yngt = 0U, .oldt = NATV};
 
 	/* nan to +/- inf */
 	lmt = !isnanpx(lmt) ? lmt
@@ -371,7 +372,7 @@ book_pdo(book_t b, book_side_t s, qx_t q, px_t lmt)
 		: s == BOOK_SIDE_ASK ? INFPX
 		: lmt;
 	for (btree_iter_t i = {.t = b.BOOK(s)};
-	     q > 0.dd && btree_iter_next(&i) &&
+	     q > 0.df && btree_iter_next(&i) &&
 		     (s == BOOK_SIDE_BID && i.k >= lmt ||
 		      s == BOOK_SIDE_ASK && i.k <= lmt);) {
 		qx_t Q = i.v->q <= q ? i.v->q : q;

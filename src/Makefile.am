@@ -25,14 +25,26 @@ libbooks_a_SOURCES += btree.c btree.h
 libbooks_a_SOURCES += books.c books.h
 libbooks_a_SOURCES += nifty.h
 libbooks_a_SOURCES += btree_val.h
-libbooks_a_SOURCES += dfp754_d32.c dfp754_d32.h
 libbooks_a_SOURCES += dfp754_d64.c dfp754_d64.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 libbooks_a_LIBADD = $(dfp754_LIBS)
 
+lib_LIBRARIES += libbooksd32.a
+libbooksd32_a_SOURCES =
+libbooksd32_a_SOURCES += btree.c btree.h
+libbooksd32_a_SOURCES += books.c books.h
+libbooksd32_a_SOURCES += nifty.h
+libbooksd32_a_SOURCES += btree_val.h
+libbooksd32_a_SOURCES += dfp754_d32.c dfp754_d32.h
+libbooksd32_a_CPPFLAGS = $(AM_CPPFLAGS)
+libbooksd32_a_CPPFLAGS += -D_Decimal64=_Decimal32
+libbooksd32_a_CPPFLAGS += $(dfp754_CFLAGS)
+libbooksd32_a_LIBADD = $(dfp754_LIBS)
+
 pkginclude_HEADERS =
 pkginclude_HEADERS += books.h
+pkginclude_HEADERS += booksd32.h
 
 bin_PROGRAMS += book2book
 book2book_SOURCES = book2book.c book2book.yuck
@@ -66,6 +78,9 @@ version.c: version.c.in $(top_builddir)/.version
 	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
 		yuck$(EXEEXT) scmver --ignore-noscm --force -o $@ \
 			--use-reference --reference $(top_builddir)/.version $<
+
+booksd32.h: books.h
+	sed 's/64/32/' $< > $@
 
 ## yuck rule
 SUFFIXES += .yuck
