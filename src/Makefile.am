@@ -26,6 +26,7 @@ libbooks_a_SOURCES += books.c books.h
 libbooks_a_SOURCES += nifty.h
 libbooks_a_SOURCES += btree_val.h
 libbooks_a_SOURCES += dfp754_d64.c dfp754_d64.h
+libbooks_a_SOURCES += dfp754_d32.c dfp754_d32.h
 libbooks_a_CPPFLAGS = $(AM_CPPFLAGS)
 libbooks_a_CPPFLAGS += $(dfp754_CFLAGS)
 libbooks_a_LIBADD = $(dfp754_LIBS)
