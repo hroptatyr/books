@@ -44,9 +44,45 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
+
+#if !defined BOOKSD64 && !defined BOOKSD32
+# define BTREE_MULTI
+# define BOOKSD64
+#endif	/* !BOOKSD64 && !BOOKSD32 */
 #include "btree.h"
 #include "btree_val.h"
 #include "nifty.h"
+
+#undef btree_ual_t
+#undef node_free_p
+#undef root_split
+#undef node_split
+#undef leaf_get
+#undef twig_get
+#undef leaf_add
+#undef twig_add
+
+#if 0
+
+#elif defined BOOKSD32
+# define btree_ual_t	btreed32_ual_t
+# define node_free_p	noded32_free_p
+# define root_split	rootd32_split
+# define node_split	noded32_split
+# define leaf_get	leafd32_get
+# define twig_get	twigd32_get
+# define leaf_add	leafd32_add
+# define twig_add	twigd32_add
+#elif defined BOOKSD64
+# define btree_ual_t	btreed64_ual_t
+# define node_free_p	noded64_free_p
+# define root_split	rootd64_split
+# define node_split	noded64_split
+# define leaf_get	leafd64_get
+# define twig_get	twigd64_get
+# define leaf_add	leafd64_add
+# define twig_add	twigd64_add
+#endif	/* BOOKSD32 || BOOKSD64 */
 
 typedef union {
 	btree_val_t v;
@@ -473,5 +509,13 @@ inv:
 	iter->v = NULL;
 	return false;
 }
+
+#if defined BTREE_MULTI
+# if defined BOOKSD64 && !defined BOOKSD32
+#  define BOOKSD32
+#  undef INCLUDED_btree_h_
+#  include __FILE__
+# endif
+#endif
 
 /* btree.c ends here */
