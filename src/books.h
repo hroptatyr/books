@@ -35,25 +35,109 @@
  *
  **/
 #if !defined INCLUDED_books_h_
-#define INCLUDED_books_h_
 #include <stdlib.h>
 #include <stdbool.h>
 
-typedef _Decimal64 px_t;
-typedef _Decimal64 qx_t;
+#if !defined BOOKSD32 || !defined BOOKSD64
+# define books_h_once
+#endif
+
+#if defined books_h_once
 typedef long long unsigned int tv_t;
-
-#define NANPX	NAND64
-#define isnanpx	isnand64
-#define NANQX	NAND64
-#define isnanqx	isnand64
-#define INFPX	INFD64
-#define isinfpx	isinfd64
 #define NATV	((tv_t)-1ULL)
-
 #define NSECS	(1000000000)
 #define USECS	(1000000)
 #define MSECS	(1000)
+#endif
+
+#if !defined BOOKSD32 && !defined BOOKSD64
+/* set a default */
+# define BOOKSD64
+#endif	/* BOOKSD64 */
+
+#undef NANPX
+#undef isnanpx
+#undef NANQX
+#undef isnanqx
+#undef INFPX
+#undef isinfpx
+
+#undef book_quo_t
+#undef book_iter_t
+#undef make_book
+#undef free_book
+#undef book_add
+#undef book_clr
+#undef book_exp
+#undef book_top
+#undef book_tops
+#undef book_ctop
+#undef book_ctops
+#undef book_vtop
+#undef book_vtops
+#undef book_pdo
+#undef book_iter
+#undef book_iter_next
+#undef px_t
+
+#if 0
+
+#elif defined BOOKSD32
+# define px_t		_Decimal32
+typedef _Decimal64 qx_t;
+#
+# define NANPX		NAND32
+# define isnanpx	isnand32
+# define NANQX		NAND64
+# define isnanqx	isnand64
+# define INFPX		INFD32
+# define isinfpx	isinfd32
+#
+# define book_quo_t	bookd32_quo_t
+# define book_iter_t	bookd32_iter_t
+# define make_book	make_bookd32
+# define free_book	free_bookd32
+# define book_add	bookd32_add
+# define book_clr	bookd32_clr
+# define book_exp	bookd32_exp
+# define book_top	bookd32_top
+# define book_tops	bookd32_tops
+# define book_ctop	bookd32_ctop
+# define book_ctops	bookd32_ctops
+# define book_vtop	bookd32_vtop
+# define book_vtops	bookd32_vtops
+# define book_pdo	bookd32_pdo
+# define book_iter	bookd32_iter
+# define book_iter_next	bookd32_iter_next
+
+#elif defined BOOKSD64
+# define px_t		_Decimal64
+typedef _Decimal64 qx_t;
+#
+# define NANPX		NAND64
+# define isnanpx	isnand64
+# define NANQX		NAND64
+# define isnanqx	isnand64
+# define INFPX		INFD64
+# define isinfpx	isinfd64
+#
+# define book_quo_t	bookd64_quo_t
+# define book_iter_t	bookd64_iter_t
+# define make_book	make_bookd64
+# define free_book	free_bookd64
+# define book_add	bookd64_add
+# define book_clr	bookd64_clr
+# define book_exp	bookd64_exp
+# define book_top	bookd64_top
+# define book_tops	bookd64_tops
+# define book_ctop	bookd64_ctop
+# define book_ctops	bookd64_ctops
+# define book_vtop	bookd64_vtop
+# define book_vtops	bookd64_vtops
+# define book_pdo	bookd64_pdo
+# define book_iter	bookd64_iter
+# define book_iter_next	bookd64_iter_next
+#endif	/* BOOKSD32 || BOOKSD64 */
 
 /* our books look like
  * T... INS ACT PRC QTY
@@ -70,6 +154,7 @@ typedef long long unsigned int tv_t;
  *   - MQ for mid-points within consolidation of quantity Q
  *   - T0 for trades (at ask) and S0 for sells at bid */
 
+#if defined books_h_once
 typedef enum {
 	BOOK_SIDE_UNK,
 	BOOK_SIDE_ASK,
@@ -79,14 +164,28 @@ typedef enum {
 	NBOOK_SIDES
 } book_side_t;
 
+typedef enum {
+	BOOK_LVL_0,
+	BOOK_LVL_1,
+	BOOK_LVL_2,
+	BOOK_LVL_3,
+} book_lvl_t;
+
+typedef struct {
+	void *quos[2U];
+} book_t;
+
+typedef struct {
+	qx_t base;
+	qx_t term;
+	tv_t yngt;
+	tv_t oldt;
+} book_pdo_t;
+#endif
+
 typedef struct {
 	book_side_t s;
-	enum {
-		BOOK_LVL_0,
-		BOOK_LVL_1,
-		BOOK_LVL_2,
-		BOOK_LVL_3,
-	} f;
+	book_lvl_t f;
 	px_t p;
 	qx_t q;
 	tv_t t;
@@ -94,10 +193,6 @@ typedef struct {
 
 #define NOT_A_QUO	(book_quo_t){BOOK_SIDE_UNK}
 #define NOT_A_QUO_P(x)	!((x).s)
-
-typedef struct {
-	void *quos[2U];
-} book_t;
 
 typedef struct {
 	void *b;
@@ -109,13 +204,6 @@ typedef struct {
 
 #define BIDX(x)		((x) - 1U)
 #define BOOK(x)		quos[BIDX(x)]
-
-typedef struct {
-	qx_t base;
-	qx_t term;
-	tv_t yngt;
-	tv_t oldt;
-} book_pdo_t;
 
 
 extern book_t make_book(void);
@@ -181,4 +269,6 @@ book_iter(book_t b, book_side_t s)
 	return (book_iter_t){b.BOOK(s)};
 }
 
+#define INCLUDED_books_h_
+#undef books_h_once
 #endif	/* INCLUDED_books_h_ */

@@ -35,11 +35,59 @@
  *
  **/
 #if !defined INCLUDED_btree_h_
-#define INCLUDED_btree_h_
 #include <stdlib.h>
 #include <stdbool.h>
-/* defines btree_key_t and btree_val_t, hopefully */
+/* defines btree_val_t, hopefully */
 #include "btree_val.h"
+
+#if !defined BOOKSD32 && !defined BOOKSD64
+/* a sane default */
+# define BOOKSD64
+#endif	/* !BOOKSD32 && !BOOKSD64 */
+
+#undef btree_key_t
+#undef btree_s
+#undef btree_t
+#undef btree_iter_t
+#undef make_btree
+#undef free_btree
+#undef btree_get
+#undef btree_put
+#undef btree_rem
+#undef btree_clr
+#undef btree_top
+#undef btree_iter_next
+
+/* keys are prices */
+#if 0
+
+#elif defined BOOKSD32
+# define btree_key_t	_Decimal32
+# define btree_s	btreed32_s
+# define btree_t	btreed32_t
+# define btree_iter_t	btreed32_iter_t
+# define make_btree	make_btreed32
+# define free_btree	free_btreed32
+# define btree_get	btreed32_get
+# define btree_put	btreed32_put
+# define btree_rem	btreed32_rem
+# define btree_clr	btreed32_clr
+# define btree_top	btreed32_top
+# define btree_iter_next	btreed32_iter_next
+#elif defined BOOKSD64
+# define btree_key_t	_Decimal64
+# define btree_s	btreed64_s
+# define btree_t	btreed64_t
+# define btree_iter_t	btreed64_iter_t
+# define make_btree	make_btreed64
+# define free_btree	free_btreed64
+# define btree_get	btreed64_get
+# define btree_put	btreed64_put
+# define btree_rem	btreed64_rem
+# define btree_clr	btreed64_clr
+# define btree_top	btreed64_top
+# define btree_iter_next	btreed64_iter_next
+#endif	/* BOOKSD32 || BOOKSD64 */
 
 typedef struct btree_s *btree_t;
 
@@ -62,4 +110,5 @@ extern btree_val_t *btree_top(btree_t, btree_key_t*);
 
 extern bool btree_iter_next(btree_iter_t*);
 
+#define INCLUDED_btree_h_
 #endif	/* INCLUDED_btree_h_ */

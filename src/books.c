@@ -42,14 +42,29 @@
 #endif	/* HAVE_DFP754_H */
 #include "dfp754_d32.h"
 #include "dfp754_d64.h"
+#if !defined BOOKSD64 && !defined BOOKSD32
+# define BOOKS_MULTI
+# define BOOKSD64
+#endif	/* !BOOKSD64 && !BOOKSD32 */
 #include "books.h"
 #include "btree.h"
 #include "nifty.h"
 
+#if !defined BOOKSD32 || !defined BOOKSD64
+# define books_c_once
+#endif
+
+#if 0
+
+#elif defined BOOKSD32
+#define quantizepx	quantized32
+#elif defined BOOKSD64
 #define quantizepx	quantized64
+#endif
 #define quantizeqx	quantized64
 
 
+#if defined books_c_once
 static inline __attribute__((pure, const)) tv_t
 min_tv(tv_t t1, tv_t t2)
 {
@@ -61,6 +76,7 @@ max_tv(tv_t t1, tv_t t2)
 {
 	return t1 >= t2 ? t1 : t2;
 }
+#endif
 
 
 book_t
@@ -398,5 +414,17 @@ book_iter_next(book_iter_t *iter)
 	}
 	return false;
 }
+
+#undef books_c_once
+#if defined BOOKS_MULTI
+# if defined BOOKSD64 && !defined BOOKSD32
+#  define BOOKSD32
+#
+#  undef quantizepx
+#  undef INCLUDED_books_h_
+#  undef INCLUDED_btree_h_
+#  include __FILE__
+# endif
+#endif
 
 /* books.c ends here */
