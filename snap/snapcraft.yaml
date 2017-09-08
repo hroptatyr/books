@@ -1,0 +1,22 @@
+name: books
+version: '0.1.0-GIT'
+summary: Handling limit order books.
+description: |
+    Library to reproduce and inspect (aggregated) order books. Tools to
+    do simple conversions of order books inside.
+    
+    This is a sister project of clob which handles the disaggregated
+    case, i.e. at order level instead of quote level.
+grade: devel # must be 'stable' to release into candidate/stable channels
+confinement: devmode # use 'strict' once you have the right plugs and slots
+
+apps:
+    book2book:
+        command: bin/book2book
+    booksnap:
+        command: bin/booksnap
+
+parts:
+    libbooks:
+        plugin: autotools
+        source: https://github.com/hroptatyr/books.git
