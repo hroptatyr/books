@@ -1,6 +1,6 @@
 /*** xquo.h -- quote serialising/deserialising
  *
- * Copyright (C) 2016-2017 Sebastian Freundt
+ * Copyright (C) 2016-2018 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
