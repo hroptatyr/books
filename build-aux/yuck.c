@@ -38,6 +38,9 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 /* for fgetln() */
+#if !defined __BSD_VISIBLE
+# define __BSD_VISIBLE 1
+#endif /* !__BSD_VISIBLE */
 #if !defined _NETBSD_SOURCE
 # define _NETBSD_SOURCE
 #endif	/* !_NETBSD_SOURCE */
@@ -61,6 +64,8 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <time.h>
 #if defined WITH_SCMVER
 # include <yuck-scmver.h>
@@ -739,7 +744,8 @@ static const char *const auto_types[] = {"auto", "flag"};
 static FILE *outf;
 
 static struct {
-	unsigned int no_auto_flags:1U;
+	unsigned int no_auto_help:1U;
+	unsigned int no_auto_version:1U;
 	unsigned int no_auto_action:1U;
 } global_tweaks;
 
@@ -900,8 +906,10 @@ yield_usg(const struct usg_s *arg)
 				idn, arg->desc);
 		}
 		/* insert auto-help and auto-version */
-		if (!global_tweaks.no_auto_flags) {
+		if (!global_tweaks.no_auto_help) {
 			yield_help();
+		}
+		if (!global_tweaks.no_auto_version) {
 			yield_version();
 		}
 	}
@@ -1734,7 +1742,14 @@ cmd_gen(const struct yuck_cmd_gen_s argi[static 1U])
 	int rc = 0;
 
 	if (argi->no_auto_flags_flag) {
-		global_tweaks.no_auto_flags = 1U;
+		global_tweaks.no_auto_help = 1U;
+		global_tweaks.no_auto_version = 1U;
+	}
+	if (argi->no_auto_version_flag) {
+		global_tweaks.no_auto_version = 1U;
+	}
+	if (argi->no_auto_help_flag) {
+		global_tweaks.no_auto_help = 1U;
 	}
 	if (argi->no_auto_actions_flag) {
 		global_tweaks.no_auto_action = 1U;
@@ -1880,7 +1895,14 @@ cmd_gendsl(const struct yuck_cmd_gendsl_s argi[static 1U])
 	int rc = 0;
 
 	if (argi->no_auto_flags_flag) {
-		global_tweaks.no_auto_flags = 1U;
+		global_tweaks.no_auto_help = 1U;
+		global_tweaks.no_auto_version = 1U;
+	}
+	if (argi->no_auto_version_flag) {
+		global_tweaks.no_auto_version = 1U;
+	}
+	if (argi->no_auto_help_flag) {
+		global_tweaks.no_auto_help = 1U;
 	}
 	if (argi->no_auto_actions_flag) {
 		global_tweaks.no_auto_action = 1U;
